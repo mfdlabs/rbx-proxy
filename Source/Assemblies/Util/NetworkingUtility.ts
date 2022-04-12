@@ -1205,7 +1205,7 @@ export class NetworkingUtility {
     /**
      * Trys to fetch the public IP address of the current machine.
      * This is really only if you are behind a NAT.
-     * If you are not behind a NAT, use getInterfaces() instead.
+     * If you are not behind a NAT, use GetPublicIPFromInterfaces() instead.
      * @returns The public IP address of the current machine.
      */
     public static async GetPublicIP() {
