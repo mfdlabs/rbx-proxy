@@ -1192,7 +1192,8 @@ export class NetworkingUtility {
                     alias.family === 'IPv4' &&
                     alias.address !== 'localhost' &&
                     !NetworkingUtility.IsIPv4Loopback(alias.address) &&
-                    !NetworkingUtility.IsIPv4Rfc1918(alias.address)
+                    !NetworkingUtility.IsIPv4Rfc1918(alias.address) &&
+                    !NetworkingUtility.IsIPv4LinkLocal(alias.address)
                 ) {
                     return alias.address;
                 }
