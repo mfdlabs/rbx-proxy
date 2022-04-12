@@ -1,22 +1,45 @@
-import { LBInfoHandler } from 'Assemblies/Handlers/LBInfoHandler';
-import { IRoutingController } from 'Assemblies/Setup/Interfaces/IRoutingController';
-import { GlobalEnvironment } from 'Assemblies/Util/GlobalEnvironment';
-import { Logger } from 'Assemblies/Util/LoggingUtility';
-import { NetworkingUtility } from 'Assemblies/Util/NetworkingUtility';
+/*
+   Copyright 2022 Nikita Petko <petko@vmminfra.net>
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+/*
+    File Name: __all.ts
+    Description: This route will proxy all requests to the server. The __all part will treat this as a middleware instead of a direct route.
+    Written by: Nikita Petko
+*/
+
+
+import { LBInfoHandler } from 'Library/Handlers/LBInfoHandler';
+import { IRoute, RoutingMethod } from 'Library/Setup/Interfaces/IRoute';
+import { GlobalEnvironment } from 'Library/Util/GlobalEnvironment';
+import { Logger } from 'Library/Util/Logger';
+import { NetworkingUtility } from 'Library/Util/NetworkingUtility';
 import axios, { Method } from 'axios';
 import { Request, Response, NextFunction } from 'express';
 
 /*
-There are 5 forms of loopback we can do here.
-1. Loopback -> Loopback, this one signifies that the local client is connecting to the local server.
-2. LAN -> LAN, this one signifies that the local client is connecting to itself through an rfc1918 address.
-3. Gateway -> LAN, this one signifies that an NATed client is connecting to it's own NATed address.
-4. Public -> Public, this one only applies for forwarded hosts, and is used to signify that a remote client is forwarding a host that matches the public NATed address of the local client.
-5. Link-Local -> LAN, while this one isn't technically a loopback and is very rare, it is used to signify that a client is somehow connecting to itself through a link-local address.
+    There are 5 forms of loopback we can do here.
+    1. Loopback -> Loopback, this one signifies that the local client is connecting to the local server.
+    2. LAN -> LAN, this one signifies that the local client is connecting to itself through an rfc1918 address.
+    3. Gateway -> LAN, this one signifies that an NATed client is connecting to it's own NATed address.
+    4. Public -> Public, this one only applies for forwarded hosts, and is used to signify that a remote client is forwarding a host that matches the public NATed address of the local client.
+    5. Link-Local -> LAN, while this one isn't technically a loopback and is very rare, it is used to signify that a client is somehow connecting to itself through a link-local address.
 */
 
-class RoutingMiddleware implements IRoutingController {
-    public RequestMethod: string = 'ALL';
+class RoutingMiddleware implements IRoute {
+    public RequestMethod = 'ALL' as RoutingMethod;
 
     private static TransformRequestHost(host: string): string {
         if (host === undefined || host === null) return null;
