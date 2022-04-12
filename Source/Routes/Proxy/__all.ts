@@ -143,13 +143,14 @@ class RoutingMiddleware implements IRoutingController {
         }
 
         if (
-            host === 'localhost' ||
             NetworkingUtility.IsIPv4Loopback(host) ||
             NetworkingUtility.IsIPv6Loopback(host) ||
-            host === NetworkingUtility.GetLocalIP() ||
             NetworkingUtility.IsIPv4Loopback(resolvedHost) ||
             NetworkingUtility.IsIPv6Loopback(resolvedHost) ||
             resolvedHost === NetworkingUtility.GetLocalIP() ||
+            host === NetworkingUtility.GetLocalIP() ||
+            resolvedHost === NetworkingUtility.GetLocalIPv6() ||
+            host === NetworkingUtility.GetLocalIPv6() ||
             host === RoutingMiddleware.PublicIP ||
             resolvedHost === RoutingMiddleware.PublicIP
         ) {
