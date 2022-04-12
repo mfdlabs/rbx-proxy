@@ -1,0 +1,38 @@
+name: Production Build Linux
+
+on:
+  push:
+    branches:
+      - "master"
+    paths:
+      - "Source/**"
+      - ".github/workflows/**"
+      - "package.json"
+      - "package-lock.json"
+  pull_request:
+    paths:
+      - "Source/**"
+      - ".github/workflows/**"
+      - "package.json"
+      - "package-lock.json"
+
+jobs:
+  production-build-linux:
+    if: "!contains(toJSON(github.event.commits.*.message), '[SKIP CI]')"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-18.04", "ubuntu-20.04", "ubuntu-latest"]
+        node: [12, 14, 16]
+    steps:
+      - name: Checkout repository.
+        uses: actions/checkout@v2
+
+      - name: Setup the node js environment with version 16.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Run the build-full script to update packages and build the project.
+        run: npm run build-full
