@@ -1,6 +1,9 @@
 import { ImportHandler } from './ImportHandler';
 ImportHandler();
 
+import { DotENV } from 'Assemblies/Util/DotENV';
+DotENV.GlobalConfigure();
+
 import Application, { NextFunction, Request, Response } from 'express';
 import { LoggingHandler } from './Assemblies/Middleware/Logger';
 import { StandardInHandler } from './StandardInHandler';
@@ -8,11 +11,8 @@ import { SystemSDK } from 'Assemblies/Setup/Lib/SystemSDK';
 import { __baseDirName } from 'Assemblies/Directories';
 import { LBInfoHandler } from 'Assemblies/Handlers/LBInfoHandler';
 import { NetworkingUtility } from 'Assemblies/Util/NetworkingUtility';
-import { DotENV } from 'Assemblies/Util/DotENV';
 import { CidrCheckHandler } from 'Assemblies/Middleware/CidrCheck';
 import { CrawlerCheckHandler } from 'Assemblies/Middleware/CrawlerCheck';
-
-DotENV.GlobalConfigure();
 
 const sharedSettings = {
     UseSsl: true,
@@ -46,7 +46,7 @@ const sharedSettings = {
 
     SystemSDK.SetBaseRoutesPath('Routes');
 
-    SystemSDK.ConfigureServer(SystemSDK.MetadataBuilder(ProxyServer, 'Proxy', '127.0.0.1'));
+    SystemSDK.ConfigureServer(SystemSDK.MetadataBuilder(ProxyServer, 'Proxy', 'rbx-proxy.lb.vmminfra.dev'));
 
     ProxyServer.use((request, response) => {
         // Not found handler
