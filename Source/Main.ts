@@ -39,11 +39,6 @@ const sharedSettings = {
         next();
     });
 
-    let routes = NetworkingUtility.GetRouteTable();
-    
-    for (let _ of routes) {
-    }
-
     SystemSDK.SetBaseRoutesPath('Routes');
 
     SystemSDK.ConfigureServer(SystemSDK.MetadataBuilder(ProxyServer, 'Proxy', 'rbx-proxy.lb.vmminfra.dev'));
