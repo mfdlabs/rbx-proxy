@@ -1,25 +1,47 @@
+/*
+   Copyright 2022 Nikita Petko <petko@vmminfra.net>
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+/*
+    File Name: Main.ts
+    Description: The main entry point for the application.
+    Written by: Nikita Petko
+*/
+
 import { ImportHandler } from './ImportHandler';
 ImportHandler();
 
-import { DotENV } from 'Assemblies/Util/DotENV';
-DotENV.GlobalConfigure();
+import { DotENV } from 'Library/Util/DotENV';
+DotENV.Load();
 
 import Application, { NextFunction, Request, Response } from 'express';
-import { LoggingHandler } from './Assemblies/Middleware/Logger';
+import { LoggingHandler } from './Library/Middleware/Logger';
 import { StandardInHandler } from './StandardInHandler';
-import { SystemSDK } from 'Assemblies/Setup/Lib/SystemSDK';
-import { __baseDirName } from 'Assemblies/Directories';
-import { LBInfoHandler } from 'Assemblies/Handlers/LBInfoHandler';
-import { NetworkingUtility } from 'Assemblies/Util/NetworkingUtility';
-import { CidrCheckHandler } from 'Assemblies/Middleware/CidrCheck';
-import { CrawlerCheckHandler } from 'Assemblies/Middleware/CrawlerCheck';
+import { WebHelper } from 'Library/Setup/Lib/WebHelper';
+import { __baseDirName } from 'Library/Directories';
+import { LBInfoHandler } from 'Library/Handlers/LBInfoHandler';
+import { NetworkingUtility } from 'Library/Util/NetworkingUtility';
+import { CidrCheckHandler } from 'Library/Middleware/CidrCheck';
+import { CrawlerCheckHandler } from 'Library/Middleware/CrawlerCheck';
 
 const sharedSettings = {
     UseSsl: true,
     UseInsecure: true,
     InsecurePort: 80,
     SslPort: 443,
-    UseSslDirectoryName: true,
+    UseSslDirectory: true,
     CertificateFileName: 'mfdlabs-all-authority-roblox-local.crt',
     CertificateKeyFileName: 'mfdlabs-all-authority-roblox-local.key',
     CertificateKeyPassword: 'testing123',
@@ -39,9 +61,21 @@ const sharedSettings = {
         next();
     });
 
-    SystemSDK.SetBaseRoutesPath('Routes');
+    WebHelper.SetBaseRoutesPath('Routes');
 
-    SystemSDK.ConfigureServer(SystemSDK.MetadataBuilder(ProxyServer, 'Proxy', 'rbx-proxy.lb.vmminfra.dev'));
+    WebHelper.ConfigureServer({
+        Application: ProxyServer,
+        AllowRoutes: true,
+        RouteConfiguration: {
+            RouteStorePath: WebHelper.GetRoutesDirectory('Proxy'),
+            LogRouteSetup: true,
+            SiteName: 'rbx-proxy.lb.vmminfra.net',
+        },
+        TrustProxy: false,
+        NoXPoweredBy: true,
+        NoETag: true,
+        RawBufferRequest: true,
+    });
 
     ProxyServer.use((request, response) => {
         // Not found handler
@@ -78,15 +112,15 @@ const sharedSettings = {
             );
     });
 
-    SystemSDK.StartServer({
+    WebHelper.StartServer({
         Application: ProxyServer,
-        SiteName: '0.0.0.0',
+        Hostname: '0.0.0.0',
         ...sharedSettings,
     });
 
-    SystemSDK.StartServer({
+    WebHelper.StartServer({
         Application: ProxyServer,
-        SiteName: '::',
+        Hostname: '::',
         ...sharedSettings,
     });
 })();
