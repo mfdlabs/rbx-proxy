@@ -149,13 +149,28 @@ export class NetworkingUtility {
 
     /**
      * A constant that represents the IPv6 RFC4193 private network CIDR.
+     * @see https://tools.ietf.org/html/rfc4193
      */
-    public static readonly IPv6PrivateCidr = 'fc00::/7';
+    public static readonly IPv6RFC4193Cidr = 'fc00::/7';
+
+    /**
+     * A constant that represents the left side of the IPv6 RFC4193 private network CIDR.
+     * @see https://tools.ietf.org/html/rfc4193
+     */
+    public static readonly IPv6RFC4193LeftCidr = 'fc00::/8';
+
+    /**
+     * A constant that represents the right side of the IPv6 RFC4193 private network CIDR.
+     * @see https://tools.ietf.org/html/rfc4193
+     */
+    public static readonly IPv6RFC4193RightCidr = 'fd00::/8';
 
     /**
      * A constant that represents the IPv6 RFC3879 private network CIDR.
+     * @see https://tools.ietf.org/html/rfc3879
+     * @deprecated This is no longer used.
      */
-    public static readonly IPv6LinkLocalCidr = 'fec0::/10';
+    public static readonly IPv6RFC3879Cidr = 'fec0::/10';
 
     /**
      * A constant that represents the IPv6 loopback CIDR.
@@ -767,15 +782,15 @@ export class NetworkingUtility {
         const ipBytes = NetworkingUtility.IPv6ToInt(ip);
 
         // Get mask bytes
-        const maskBytes = -1 << (128 - maskAsInt);
+        const maskBytes = -1n << (128n - BigInt(maskAsInt));
 
         // Get subnet bytes
         let subnetBytes = NetworkingUtility.IPv6ToInt(subnet);
 
         // nb: in case the supplied subnet wasn't correctly aligned.
-        subnetBytes &= BigInt(maskBytes);
+        subnetBytes &= maskBytes;
 
-        return (ipBytes & BigInt(maskBytes)) === subnetBytes;
+        return (ipBytes & maskBytes) === subnetBytes;
     }
 
     /**
@@ -974,7 +989,7 @@ export class NetworkingUtility {
      * @returns True if the IP is a link-local address, false otherwise.
      */
     public static IsIPv6Rfc4193(ip: string) {
-        return NetworkingUtility.IsIPv6InCidrRange(ip, NetworkingUtility.IPv6PrivateCidr);
+        return NetworkingUtility.IsIPv6InCidrRange(ip, NetworkingUtility.IPv6RFC4193Cidr);
     }
 
     /**
@@ -989,10 +1004,11 @@ export class NetworkingUtility {
      * NetworkingUtility.IsIPv6Rfc3879(otherIp); // false
      * ```
      * @param {string} ip The IPv6 address to check.
+     * @deprecated RFC3879 is deprecated.
      * @returns True if the IP is a unique local address, false otherwise.
      */
     public static IsIPv6Rfc3879(ip: string) {
-        return NetworkingUtility.IsIPv6InCidrRange(ip, NetworkingUtility.IPv6LinkLocalCidr);
+        return NetworkingUtility.IsIPv6InCidrRange(ip, NetworkingUtility.IPv6RFC3879Cidr);
     }
 
     /**
@@ -1113,6 +1129,37 @@ export class NetworkingUtility {
     }
 
     /**
+     * Gets the current RFC 4193 or RFC 3879 IPv6 address for the current machine.
+     * 
+     * It will either return the first ethernet interface address or WiFi interface address.
+     * @returns The current IPv6 address.
+     */
+    public static GetLocalIPv6(): string {
+        if (process.env.MFDLABS_LOCAL_IPv6 !== undefined) return process.env.MFDLABS_LOCAL_IPv6;
+
+        const netInterfaces = GetNetworkInterfaces();
+        for (const interfaceName in netInterfaces) {
+            if (!NetworkingUtility.EthernetInterfaceRegex.test(interfaceName) && !NetworkingUtility.WifiInterfaceRegex.test(interfaceName))
+                continue;
+
+            const netInterface = netInterfaces[interfaceName];
+
+            for (let i = 0; i < netInterface.length; i++) {
+                const alias = netInterface[i];
+
+                if (
+                    alias.family === 'IPv6' &&
+                    !NetworkingUtility.IsIPv6Loopback(alias.address) &&
+                    (NetworkingUtility.IsIPv6Rfc3879(alias.address) || NetworkingUtility.IsIPv6Rfc4193(alias.address))
+                ) {
+                    return alias.address;
+                }
+            }
+        }
+        return '::1';
+    }
+
+    /**
      * Gets the RFC1918 IP address for the current machine.
      *
      * It will either return the first ethernet interface address or WiFi interface address.
@@ -1121,15 +1168,15 @@ export class NetworkingUtility {
     public static GetLocalIP(): string {
         if (process.env.MFDLABS_LOCAL_IP !== undefined) return process.env.MFDLABS_LOCAL_IP;
 
-        var netInterfaces = GetNetworkInterfaces();
-        for (var interfaceName in netInterfaces) {
+        const netInterfaces = GetNetworkInterfaces();
+        for (const interfaceName in netInterfaces) {
             if (!NetworkingUtility.EthernetInterfaceRegex.test(interfaceName) && !NetworkingUtility.WifiInterfaceRegex.test(interfaceName))
                 continue;
 
-            var netInterface = netInterfaces[interfaceName];
+            const netInterface = netInterfaces[interfaceName];
 
-            for (var i = 0; i < netInterface.length; i++) {
-                var alias = netInterface[i];
+            for (let i = 0; i < netInterface.length; i++) {
+                const alias = netInterface[i];
 
                 if (
                     alias.family === 'IPv4' &&
