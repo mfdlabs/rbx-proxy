@@ -1,9 +1,34 @@
-import { networkInterfaces as GetNetworkInterfaces, hostname as GetMachineHost } from 'os';
-import { lookup as LookupHostname } from 'dns';
+/*
+   Copyright 2022 Nikita Petko <petko@vmminfra.net>
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+/*
+    File Name: NetworingUtility.ts
+    Description: A lot of useful functions for working with networks, such as getting the external IP address, gateway, IP conversions, etc.
+    Written by: Nikita Petko
+*/
+
 import { get as GetRequest } from 'http';
 import { execSync as Execute } from 'child_process';
+import { lookup as LookupHostname } from 'dns';
+import { networkInterfaces as GetNetworkInterfaces, hostname as GetMachineHost } from 'os';
 
-export class NetworkingUtility {
+/**
+ * A lot of useful functions for working with networks, such as getting the external IP address, gateway, IP conversions, etc.
+ */
+export abstract class NetworkingUtility {
     ////////////////////////////////////////////////////////////////////////////////
     // Private Static Methods
     ////////////////////////////////////////////////////////////////////////////////
@@ -1130,7 +1155,7 @@ export class NetworkingUtility {
 
     /**
      * Gets the current RFC 4193 or RFC 3879 IPv6 address for the current machine.
-     * 
+     *
      * It will either return the first ethernet interface address or WiFi interface address.
      * @returns The current IPv6 address.
      */

@@ -1,7 +1,33 @@
-import { GlobalEnvironment } from 'Assemblies/Util/GlobalEnvironment';
-import { Logger } from 'Assemblies/Util/LoggingUtility';
-import { NetworkingUtility } from 'Assemblies/Util/NetworkingUtility';
-import { RequestHandler } from 'express-serve-static-core';
+/*
+   Copyright 2022 Nikita Petko <petko@vmminfra.net>
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+/*
+    File Name: CidrCheck.ts
+    Description: This handler will check if the request IP address is within an IPv4 or IPv6 CIDR range.
+                 By default it will show a 403 Forbidden response if the IP address is not in the range,
+                 but you can set it to abort the request instead.
+    Written by: Nikita Petko
+*/
+
+import { Logger } from 'Library/Util/Logger';
+import { GlobalEnvironment } from 'Library/Util/GlobalEnvironment';
+import { NetworkingUtility } from 'Library/Util/NetworkingUtility';
+
+import { RequestHandler } from 'express';
+
 export const CidrCheckHandler = ((request, response, resumeFunction) => {
     if (!GlobalEnvironment.ShouldCheckIP) return resumeFunction();
 

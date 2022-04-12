@@ -1,3 +1,30 @@
+/*
+   Copyright 2022 Nikita Petko <petko@vmminfra.net>
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
+/*
+    File Name: Logger.ts
+    Description: A console and file logger.
+    Written by: Nikita Petko
+*/
+
+import { __baseDirName } from 'Library/Directories';
+import { NetworkingUtility } from './NetworkingUtility';
+import { GlobalEnvironment } from './GlobalEnvironment';
+
+import { join as JoinPath } from 'path';
 import { format as FormatString } from 'util';
 import {
     mkdirSync as CreateDirectory,
@@ -5,32 +32,29 @@ import {
     existsSync as CheckDoesFileOrFolderExist,
     rmSync as RemoveDirectory,
 } from 'fs';
-import { NetworkingUtility } from './NetworkingUtility';
-import { GlobalEnvironment } from './GlobalEnvironment';
-import { __baseDirName } from 'Assemblies/Directories';
-import { join as JoinPath } from 'path';
 
+/**
+ * Log colors.
+ * Only ingested internally.
+ */
 enum LogColor {
     Reset = '\x1b[0m',
-    Black = '\x1b[30m',
-    Red = '\x1b[31m',
-    Green = '\x1b[32m',
-    Yellow = '\x1b[33m',
-    Blue = '\x1b[34m',
-    Magenta = '\x1b[35m',
-    Cyan = '\x1b[36m',
-    White = '\x1b[37m',
     BrightBlack = '\x1b[90m',
     BrightRed = '\x1b[91m',
-    BrightGreen = '\x1b[92m',
     BrightYellow = '\x1b[93m',
     BrightBlue = '\x1b[94m',
     BrightMagenta = '\x1b[95m',
-    BrightCyan = '\x1b[96m',
     BrightWhite = '\x1b[97m',
 }
 
-export class Logger {
+/**
+ * A simple console and file logger.
+ */
+export abstract class Logger {
+    ////////////////////////////////////////////////////////////////////////////////
+    // Private fields
+    ////////////////////////////////////////////////////////////////////////////////
+
     private static readonly LocalIP = NetworkingUtility.GetLocalIP();
     private static readonly MachineID = NetworkingUtility.GetMachineID();
     private static readonly BaseDirName = Logger.GetBaseDirName();
@@ -47,6 +71,12 @@ export class Logger {
     private static readonly Architechture = process.arch;
     private static readonly NodeVersion = process.versions.node;
     private static readonly ArchitechtureFmt = `${Logger.Platform}-${Logger.Architechture}`;
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Private Helper Methods
+    ////////////////////////////////////////////////////////////////////////////////
 
     private static GetFileSafeDateNowIsoString() {
         const date = new Date();
@@ -104,26 +134,6 @@ export class Logger {
         AppendStringToFile(Logger.FullyQualifiedLogFileName, Logger.ConstructLoggerMessage(type, message, ...args));
     }
 
-    public static TryClearLogs(overrideGlobalConfig: bool = false) {
-        Logger.Log('Try clear logs.');
-
-        if (GlobalEnvironment.PersistLocalLogs) {
-            if (overrideGlobalConfig) {
-                Logger.Warn('Overriding global config when clearing logs.');
-            } else {
-                Logger.Warn('The local log is set to persist. Please change ENVVAR LOG_PERSIST to change this.');
-                return;
-            }
-        }
-
-        Logger.Log('Clearing LocalLog...');
-
-        if (CheckDoesFileOrFolderExist(Logger.LogFileDir)) {
-            RemoveDirectory(Logger.LogFileDir, { recursive: true, force: true });
-            return;
-        }
-    }
-    
     private static GetColorSection(content: any) {
         return FormatString('[%s%s%s]', LogColor.BrightBlack, content, LogColor.Reset);
     }
@@ -160,34 +170,112 @@ export class Logger {
         console.log(formattedStr);
     }
 
-    public static Log(message: string, ...args: any[]) {
+    ////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Public Helper Methods
+    ////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Requests that the local log file directory be cleared.
+     * @param {bool} overrideGlobalConfig - If true, the global config will be ignored.
+     * @returns {void} - Nothing.
+     */
+    public static TryClearLogs(overrideGlobalConfig: bool = false) {
+        Logger.Log('Try clear logs.');
+
+        if (GlobalEnvironment.PersistLocalLogs) {
+            if (overrideGlobalConfig) {
+                Logger.Warn('Overriding global config when clearing logs.');
+            } else {
+                Logger.Warn('The local log is set to persist. Please change ENVVAR LOG_PERSIST to change this.');
+                return;
+            }
+        }
+
+        Logger.Log('Clearing LocalLog...');
+
+        if (CheckDoesFileOrFolderExist(Logger.LogFileDir)) {
+            RemoveDirectory(Logger.LogFileDir, { recursive: true, force: true });
+            return;
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Public Log Methods
+    ////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Logs a regular message.
+     * @param {string} message - The message to log.
+     * @param {any[]} ...args - The arguments to pass to the message.
+     * @returns {void} - Nothing.
+     */
+    public static Log(message: string, ...args: any[]): void {
         Logger.LogColorString('LOG', LogColor.BrightWhite, message, ...args);
         Logger.LogLocally('LOG', message, ...args);
     }
 
-    public static Warn(message: string, ...args: any[]) {
+    /**
+     * Logs a warning message.
+     * @param {string} message - The message to log.
+     * @param {any[]} ...args - The arguments to pass to the message.
+     * @returns {void} - Nothing.
+     */
+    public static Warn(message: string, ...args: any[]): void {
         Logger.LogColorString('WARN', LogColor.BrightYellow, message, ...args);
         Logger.LogLocally('WARN', message, ...args);
     }
 
-    public static Trace(message: string, ...args: any[]) {
-        Logger.LogColorString('TRACE', LogColor.BrightRed, message, ...args);
-        Logger.LogLocally('TRACE', message, ...args);
+    /**
+     * Logs a trace message.
+     * @param {string} message - The message to log.
+     * @param {any[]} ...args - The arguments to pass to the message.
+     * @returns {void} - Nothing.
+     * @remarks This will create a trace back directly from this method, not the method that called it.
+     */
+    public static Trace(message: string, ...args: any[]): void {
+        const msg = FormatString(message, ...args);
+        const trace = new Error(msg).stack;
+
+        Logger.LogColorString('TRACE', LogColor.BrightRed, trace);
+        Logger.LogLocally('TRACE', trace);
     }
 
+    /**
+     * Logs a debug message.
+     * @param {string} message - The message to log.
+     * @param {any[]} ...args - The arguments to pass to the message.
+     * @returns {void} - Nothing.
+     */
     public static Debug(message: string, ...args: any[]) {
         Logger.LogColorString('DEBUG', LogColor.BrightMagenta, message, ...args);
         Logger.LogLocally('DEBUG', message, ...args);
     }
 
+    /**
+     * Logs an info message.
+     * @param {string} message - The message to log.
+     * @param {any[]} ...args - The arguments to pass to the message.
+     * @returns {void} - Nothing.
+     */
     public static Info(message: string, ...args: any[]) {
         Logger.LogColorString('INFO', LogColor.BrightBlue, message, ...args);
         Logger.LogLocally('INFO', message, ...args);
     }
 
+    /**
+     * Logs an error message.
+     * @param {string} message - The message to log.
+     * @param {any[]} ...args - The arguments to pass to the message.
+     * @returns {void} - Nothing.
+     */
     public static Error(message: string, ...args: any[]) {
         Logger.LogColorString('ERROR', LogColor.BrightRed, message, ...args);
         Logger.LogLocally('ERROR', message, ...args);
     }
 
+    ////////////////////////////////////////////////////////////////////////////////
 }
