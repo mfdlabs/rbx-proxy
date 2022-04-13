@@ -15,3 +15,7 @@ There may be checks from Gateway to you LAN, which is kimd of a loopback because
 
 # Usage
 This proxy works within the hostname translation ruling. As in you can assign a hostname to this within your hosts file and it will try to resolve and proxy it on it's own side.
+
+# Analytics Warning
+If you do happen to setup the environment variables for the GA4 client, every time you initialize the PublicIP within the proxy route it will log the IP address to the GA4 client with the name "PublicIPInitalized".
+If you wish for it not to log the IP address, you can set the environment variable "GA4_DISABLE_IP_LOGGING" to "true"
