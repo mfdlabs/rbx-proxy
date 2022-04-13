@@ -167,7 +167,11 @@ export abstract class Logger {
             LogColor.Reset,
         );
 
-        console.log(formattedStr);
+        if (type.toLowerCase() === 'trace') {
+            console.trace(formattedStr);
+        } else {
+            console.log(formattedStr);
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -237,11 +241,8 @@ export abstract class Logger {
      * @remarks This will create a trace back directly from this method, not the method that called it.
      */
     public static Trace(message: string, ...args: any[]): void {
-        const msg = FormatString(message, ...args);
-        const trace = new Error(msg).stack;
-
-        Logger.LogColorString('TRACE', LogColor.BrightRed, trace);
-        Logger.LogLocally('TRACE', trace);
+        Logger.LogColorString('TRACE', LogColor.BrightMagenta, message, ...args);
+        Logger.LogLocally('TRACE', message, ...args);
     }
 
     /**
@@ -250,7 +251,7 @@ export abstract class Logger {
      * @param {any[]} ...args - The arguments to pass to the message.
      * @returns {void} - Nothing.
      */
-    public static Debug(message: string, ...args: any[]) {
+    public static Debug(message: string, ...args: any[]): void {
         Logger.LogColorString('DEBUG', LogColor.BrightMagenta, message, ...args);
         Logger.LogLocally('DEBUG', message, ...args);
     }
@@ -261,7 +262,7 @@ export abstract class Logger {
      * @param {any[]} ...args - The arguments to pass to the message.
      * @returns {void} - Nothing.
      */
-    public static Info(message: string, ...args: any[]) {
+    public static Info(message: string, ...args: any[]): void {
         Logger.LogColorString('INFO', LogColor.BrightBlue, message, ...args);
         Logger.LogLocally('INFO', message, ...args);
     }
@@ -272,7 +273,7 @@ export abstract class Logger {
      * @param {any[]} ...args - The arguments to pass to the message.
      * @returns {void} - Nothing.
      */
-    public static Error(message: string, ...args: any[]) {
+    public static Error(message: string, ...args: any[]): void {
         Logger.LogColorString('ERROR', LogColor.BrightRed, message, ...args);
         Logger.LogLocally('ERROR', message, ...args);
     }
