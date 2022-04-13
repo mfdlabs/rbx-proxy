@@ -35,6 +35,9 @@ import { LBInfoHandler } from 'Library/Handlers/LBInfoHandler';
 import { NetworkingUtility } from 'Library/Util/NetworkingUtility';
 import { CidrCheckHandler } from 'Library/Middleware/CidrCheck';
 import { CrawlerCheckHandler } from 'Library/Middleware/CrawlerCheck';
+import { GoogleAnalyticsHelper } from 'Library/Util/GoogleAnalyticsHelper';
+
+GoogleAnalyticsHelper.Initialize();
 
 const sharedSettings = {
     UseSsl: true,
@@ -49,6 +52,8 @@ const sharedSettings = {
 };
 
 (async () => {
+    GoogleAnalyticsHelper.FireServerEventGA4('Server', 'Start');
+
     const ProxyServer = Application();
 
     // Access logs
@@ -81,6 +86,7 @@ const sharedSettings = {
         // Not found handler
         // Shows a 404 page, but in the case of the "proxy" it will show 503
         // No cache and close the connection
+        GoogleAnalyticsHelper.FireServerEventGA4('Server', 'NotFound', request.url);
 
         response
             .status(503)
@@ -98,6 +104,9 @@ const sharedSettings = {
     ProxyServer.use((error: Error, request: Request, response: Response, _next: NextFunction) => {
         // HTML encode the error stack
         const errorStack = NetworkingUtility.HtmlEncode(error.stack);
+
+        // Log the error
+        GoogleAnalyticsHelper.FireServerEventGA4('Server', 'Error', errorStack);
 
         response
             .status(500)
