@@ -41,7 +41,7 @@ export const CidrCheckHandler = ((request, response, resumeFunction) => {
         Logger.Log(`IP '%s' is not in allowed CIDR list`, request.ip);
 
         if (GlobalEnvironment.AbortConnectionIfInvalidIP) {
-            response.end();
+            request.socket.destroy();
             return;
         }
 

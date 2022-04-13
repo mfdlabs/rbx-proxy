@@ -34,7 +34,7 @@ export const CrawlerCheckHandler = ((request, response, resumeFunction) => {
         Logger.Log(`Crawler detected: '%s'`, request.headers['user-agent']);
 
         if (GlobalEnvironment.AbortConnectionIfCrawler) {
-            response.end();
+            request.socket.destroy();
             return;
         }
 
