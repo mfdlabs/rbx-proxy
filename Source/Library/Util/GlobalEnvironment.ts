@@ -106,4 +106,75 @@ export abstract class GlobalEnvironment {
         DotENV.Load();
         return Convert.ToBoolean(process.env.ABORT_CONNECTION_IF_INVALID_IP, false);
     }
+
+    /**
+     * Used by the google analytics client.
+     * 
+     * The GA4 client's Measurement ID.
+     */
+    public static get GA4MeasurementID(): string {
+        DotENV.Load();
+        return process.env.GA4_MEASUREMENT_ID;
+    }
+
+    /**
+     * Used by the google analytics client.
+     * 
+     * The GA4 client's API Secret.
+     */
+    public static get GA4ApiSecret(): string {
+        DotENV.Load();
+        return process.env.GA4_API_SECRET;
+    }
+
+    /**
+     * Used by the google analytics client.
+     * 
+     * If true, then the GA4 client will enable logging.
+     */
+    public static get GA4EnableLogging(): bool {
+        DotENV.Load();
+        return Convert.ToBoolean(process.env.GA4_ENABLE_LOGGING, false);
+    }
+
+    /**
+     * Used by the google analytics client.
+     * 
+     * If true, then the GA4 client will enable server-side validation.
+     */
+    public static get GA4EnableValidation(): bool {
+        DotENV.Load();
+        return Convert.ToBoolean(process.env.GA4_ENABLE_VALIDATION, false);
+    }
+
+    /**
+     * Used by the google analytics client.
+     * 
+     * If true, then the GA4 client will be enabled.
+     */
+    public static get EnableGA4Client(): bool {
+        DotENV.Load();
+        return Convert.ToBoolean(process.env.ENABLE_GA4_CLIENT, false);
+    }
+
+    /**
+     * Used by the proxy route handler.
+     * 
+     * If true, then the GA4 client will disable logging ips within the proxy route.
+     */
+    public static get GA4DisableLoggingIPs(): bool {
+        DotENV.Load();
+        return Convert.ToBoolean(process.env.GA4_DISABLE_IP_LOGGING, false);
+    }
+
+    /**
+     * Used by the proxy route handler.
+     * 
+     * If true, then the GA4 client will disable logging the body of the request.
+     */
+    public static get GA4DisableLoggingBody(): bool {
+        DotENV.Load();
+        return Convert.ToBoolean(process.env.GA4_DISABLE_BODY_LOGGING, false);
+    }
+
 }
