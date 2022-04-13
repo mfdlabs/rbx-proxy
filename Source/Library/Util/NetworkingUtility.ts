@@ -301,7 +301,14 @@ export abstract class NetworkingUtility {
             return ip;
         }
 
-        return ip.replace(NetworkingUtility.CompressIPv6Regex, '::');
+        let replaced = ip.replace(NetworkingUtility.CompressIPv6Regex, '::');
+
+        // If the segment length is 8 and the far left segment has :: then we need to remove it
+        const segments = replaced.split(':').filter((segment) => segment.length > 0);
+
+        if (segments.length === NetworkingUtility.ValidIPv6GroupsCount) replaced = replaced.replace(/::/, '');
+
+        return replaced;
     }
 
     /**
@@ -414,57 +421,38 @@ export abstract class NetworkingUtility {
      *
      * @example
      * ```ts
-     * const ip = '::1';
+     * const ip = 0x7f000001n;
      *
-     * NetworkingUtility.IntToIPv6(ip); // '0000:0000:0000:0000:0000:0000:0000:0001'
+     * NetworkingUtility.IntToIPv6(ip); // '::7f00:0001'
      * ```
-     * @warning This function is not yet implemented.
      * @param {string} ip The IP address to convert.
      * @param {boolean} compress Whether or not to compress the IPv6 address. As in 0000:0000:0000:0000:0000:0000:0000:0001 -> ::1
      * @returns The string representation of the IP address.
      */
     public static IntToIPv6(ip: bigint, compress: bool = true): string {
-        throw new Error('Not implemented');
+        if (ip < 0n) return compress ? '::' : '0000:0000:0000:0000:0000:0000:0000:0000';
+        if (ip > 0xffffffffffffffffffffffffffffffffn) return 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff';
 
-        /*// convert the input to a binary string
-        const bin = ip.toString(2);
+        // It decompresses here because I am too lazy to fill in the single 0 segments
+        const addr = NetworkingUtility.DecompressIPv6(
+            (ip >> 112n).toString(16) +
+                ':' +
+                ((ip >> 96n) & 0xffffn).toString(16) +
+                ':' +
+                ((ip >> 80n) & 0xffffn).toString(16) +
+                ':' +
+                ((ip >> 64n) & 0xffffn).toString(16) +
+                ':' +
+                ((ip >> 48n) & 0xffffn).toString(16) +
+                ':' +
+                ((ip >> 32n) & 0xffffn).toString(16) +
+                ':' +
+                ((ip >> 16n) & 0xffffn).toString(16) +
+                ':' +
+                (ip & 0xffffn).toString(16),
+        );
 
-        // split the binary string into 16-bit segments
-        const parts = [];
-
-        for (let i = 0; i < bin.length; i += 16) {
-            parts.push(bin.substr(i, 16));
-        }
-
-        // convert the segments to hexadecimal
-        const hex = parts.map((it) => parseInt(it, 2).toString(16)).join(':');
-
-        // split the hexadecimal string into 8-bit segments
-        const segments = [];
-
-        for (let i = 0; i < hex.length; i += 4) {
-            segments.push(hex.substr(i, 4));
-        }
-
-		// Fill in the missing segments with zeroes
-		const missingSegments = 8 - segments.length;
-		for (let i = 0; i < missingSegments; i++) {
-			segments.unshift('0000');
-		}
-
-		// Find any segments that aren't 4 characters long and fill the leading zeroes in
-		for (let i = 0; i < segments.length; i++) {
-			if (segments[i].length < 4) {
-				// found a segment that is less than 4 characters long
-				// fill in the leading zeroes
-				for (let j = 0; j < 4 - segments[i].length; j++) {
-					segments[i] = '0' + segments[i];
-				}
-			}
-		}
-
-        // convert the segments to IPv6
-        return segments.join(':');*/
+        return compress ? NetworkingUtility.CompressIPv6(addr) : addr;
     }
 
     /**
@@ -480,7 +468,122 @@ export abstract class NetworkingUtility {
      * @returns The string representation of the IP address.
      */
     public static IntToIPv4(ip: number) {
+        if (ip < 0) return '0.0.0.0';
+        if (ip > 0xffffffff) return '255.255.255.255';
+
         return (ip >>> 24) + '.' + ((ip >>> 16) & 0xff) + '.' + ((ip >>> 8) & 0xff) + '.' + (ip & 0xff);
+    }
+
+    /**
+     * Converts the input IPv4 address CIDR to it's respective start and end addresses.
+     *
+     * @example
+     * ```ts
+     * const ip = '10.0.0.0/8';
+     *
+     * NetworkingUtility.IPv4CIDRToRange(ip); // ['10.0.0.0', '10.255.255.255']
+     * ```
+     * @param {string} cidr The IPv4 address CIDR to convert.
+     * @returns The start and end addresses of the CIDR.
+     */
+    public static IPv4CIDRToStartEnd(cidr: string): [string, string] {
+        const parts = cidr.split('/');
+
+        if (!NetworkingUtility.IsIPv4(parts[0])) return [null, null];
+        if (parts.length === 1) return [cidr, cidr];
+
+        const ip = NetworkingUtility.IPv4ToInt(parts[0]);
+
+        const maskBits = parseInt(parts[1], 10);
+        const mask = 0xffffffff << (32 - maskBits);
+
+        // Either ~mask & 0xffffffff or mask ^ 0xffffffff
+        return [NetworkingUtility.IntToIPv4(ip & mask), NetworkingUtility.IntToIPv4(ip | (~mask & 0xffffffff))];
+    }
+
+    /**
+     * Converts the input IPv6 address CIDR to it's respective start and end addresses.
+     *
+     * @example
+     * ```ts
+     * const ip = '::/0';
+     *
+     * NetworkingUtility.IPv6CIDRToRange(ip); // ['::', 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff']
+     * ```
+     * @param {string} cidr The IPv6 address CIDR to convert.
+     * @param {boolean} compress Whether or not to compress the IPv6 address. As in 0000:0000:0000:0000:0000:0000:0000:0001 -> ::1
+     * @returns The start and end addresses of the CIDR.
+     */
+    public static IPv6CIDRToStartEnd(cidr: string, compress: bool = true): [string, string] {
+        const parts = cidr.split('/');
+
+        if (!NetworkingUtility.IsIPv6(parts[0])) return [null, null];
+        if (parts.length === 1) return [cidr, cidr];
+
+        const ip = NetworkingUtility.IPv6ToInt(parts[0]);
+
+        /**
+         * For some reason this will cap at the maskBits of 128, so we need to do some extra work to get the correct
+         */
+        const maskBits = BigInt(parts[1]);
+        const mask = 0xffffffffffffffffffffffffffffffffn << (128n - maskBits);
+
+        // Either ~mask & 0xffffffff or mask ^ 0xffffffff
+        return [
+            NetworkingUtility.IntToIPv6(ip & mask, compress),
+            NetworkingUtility.IntToIPv6(ip | (~mask & 0xffffffffffffffffffffffffffffffffn), compress),
+        ];
+    }
+
+    /**
+     * Converts the input IPv4 start and end addresses to it's respective CIDR.
+     *
+     * @example
+     * ```ts
+     * const start = '10.0.0.0';
+     * const end = '10.255.255.255';
+     *
+     * NetworkingUtility.IPv4StartEndToCIDR(start, end); // '10.0.0.0/8'
+     * ```
+     * @note This function will return the smallest possible CIDR.
+     * @param {string} start The IPv4 start address.
+     * @param {string} end The IPv4 end address.
+     * @returns The CIDR of the start and end addresses.
+     */
+    public static IPv4StartEndToCIDR(start: string, end: string): string {
+        const startInt = NetworkingUtility.IPv4ToInt(start);
+        const endInt = NetworkingUtility.IPv4ToInt(end);
+
+        const mask = 32 - Math.floor(Math.log2(endInt - startInt + 1));
+
+        return NetworkingUtility.IntToIPv4(startInt) + '/' + mask;
+    }
+
+    /**
+     * Converts the input IPv6 start and end addresses to it's respective CIDR.
+     *
+     * @example
+     * ```ts
+     * const start = '::';
+     * const end = 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff';
+     *
+     * NetworkingUtility.IPv6StartEndToCIDR(start, end); // '::/0'
+     * ```
+     * @note This function will return the smallest possible CIDR.
+     * @note Start and end addresses like ::1 -> ::ffff will be mangled on the output. i.e. the result of this will be ::1/113, when in truth there is no single CIDR for this range.
+     * @param {string} start The IPv6 start address.
+     * @param {string} end The IPv6 end address.
+     * @param {boolean} compress Whether or not to compress the IPv6 address. As in 0000:0000:0000:0000:0000:0000:0000:0001 -> ::1
+     * @returns The CIDR of the start and end addresses.
+     */
+    public static IPv6StartEndToCIDR(start: string, end: string, compress: bool = true): string {
+        const startInt = NetworkingUtility.IPv6ToInt(start);
+        const endInt = NetworkingUtility.IPv6ToInt(end);
+
+        // Instead of math.log2, we use the bitwise operators to get the number of leading zeroes
+        const mask = 128 - (128n - (128n - (endInt - startInt))).toString(2).replace(/0/g, '').length;
+
+        return NetworkingUtility.IntToIPv6(startInt, compress) + '/' + mask;
     }
 
     /**
