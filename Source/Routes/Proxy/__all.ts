@@ -20,7 +20,6 @@
     Written by: Nikita Petko
 */
 
-
 import { LBInfoHandler } from 'Library/Handlers/LBInfoHandler';
 import { IRoute, RoutingMethod } from 'Library/Setup/Interfaces/IRoute';
 import { GlobalEnvironment } from 'Library/Util/GlobalEnvironment';
@@ -28,6 +27,7 @@ import { Logger } from 'Library/Util/Logger';
 import { NetworkingUtility } from 'Library/Util/NetworkingUtility';
 import axios, { Method } from 'axios';
 import { Request, Response, NextFunction } from 'express';
+import { GoogleAnalyticsHelper } from 'Library/Util/GoogleAnalyticsHelper';
 
 /*
     There are 5 forms of loopback we can do here.
@@ -58,6 +58,25 @@ class RoutingMiddleware implements IRoute {
         return host;
     }
 
+    // private static StringToArrayBuffer(string: string): ArrayBuffer {
+    //     const buffer = new ArrayBuffer(string.length);
+    //     const view = new Uint8Array(buffer);
+    //     for (let i = 0; i < string.length; i++) {
+    //         view[i] = string.charCodeAt(i);
+    //     }
+    //     return buffer;
+    // }
+
+    // private static TransformResponseUrls(response: ArrayBuffer, responseUrl: string): ArrayBuffer {
+    //     // Basically convert response to a string, and then replace all the urls with the responseUrl
+    //     // and then convert it back to an arraybuffer
+    //     const responseString = String.fromCharCode.apply(null, new Uint16Array(response));
+
+    //     const responseStringWithUrls = responseString.replace(/https?:\/\/[^\s]+/g, responseUrl);
+
+    //     return RoutingMiddleware.StringToArrayBuffer(responseStringWithUrls);
+    // }
+
     private static ApplyCorsHeaders(origin: string, response: Response) {
         response.setHeader('Access-Control-Allow-Origin', origin);
         response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -68,8 +87,41 @@ class RoutingMiddleware implements IRoute {
     private static PublicIP: string;
 
     public async Callback(request: Request, response: Response, next: NextFunction) {
+        const gaCategory = `Proxy_${NetworkingUtility.GenerateUUIDV4()}`;
+
+        let baseGaString = '';
+        const headersAsString = Object.keys(request.headers)
+            .map((key) => `${key}: ${request.headers[key]}`)
+            .join('\n');
+        const httpVersion = request.httpVersion;
+
+        if (!GlobalEnvironment.GA4DisableLoggingIPs)
+            baseGaString = `Client ${request.ip}\n${request.method} ${request.originalUrl} ${httpVersion}\n${headersAsString}\n`;
+        else baseGaString = `Client [redacted]\n${request.method} ${request.originalUrl} ${httpVersion}\n${headersAsString}\n`;
+
+        if (!GlobalEnvironment.GA4DisableLoggingBody) {
+            const body = request.body.toString();
+
+            if (body !== '[object Object]') {
+                let truncatedBody = body.substring(0, 500);
+
+                // if the length is less than the actual body length, add an ellipsis
+                if (truncatedBody.length < body.length) truncatedBody += '...';
+
+                baseGaString += `\n${truncatedBody}\n`;
+            }
+        }
+
+        GoogleAnalyticsHelper.FireServerEventGA4(gaCategory, 'Request', baseGaString);
+
         if (RoutingMiddleware.PublicIP === undefined) {
             RoutingMiddleware.PublicIP = await NetworkingUtility.GetPublicIP();
+
+            Logger.Info("Public IP Initialized as '%s'", RoutingMiddleware.PublicIP);
+
+            if (!GlobalEnvironment.GA4DisableLoggingIPs)
+                /* This may be cause controversy */
+                GoogleAnalyticsHelper.FireServerEventGA4(gaCategory, 'PublicIPInitalized', RoutingMiddleware.PublicIP);
         }
 
         const startTime = Date.now();
@@ -78,10 +130,20 @@ class RoutingMiddleware implements IRoute {
         const transformedOrigin = `${request.secure ? 'https' : 'http'}://${RoutingMiddleware.TransformRequestHost(origin)}`;
 
         if (origin) {
+            Logger.Info('Origin is present, setting CORS headers');
+            GoogleAnalyticsHelper.FireServerEventGA4(
+                gaCategory,
+                'ApplyCorsHeaders',
+                `Original Origin: ${origin}\nTransformed Origin: ${transformedOrigin}`,
+            );
+
             RoutingMiddleware.ApplyCorsHeaders(origin, response);
         }
 
         if (request.method === 'OPTIONS') {
+            Logger.Info('Request is an OPTIONS request, responding with empty body');
+            GoogleAnalyticsHelper.FireServerEventGA4(gaCategory, 'OptionsRequest', 'Empty Response');
+
             response.send();
 
             return;
@@ -89,6 +151,9 @@ class RoutingMiddleware implements IRoute {
 
         // If the url is /, /health or /checkhealth then show the health check page
         if (request.url === '/_lb/_/health' || request.url === '/_lb/_/checkhealth') {
+            Logger.Info('Request is a health check request, responding with health check page');
+            GoogleAnalyticsHelper.FireServerEventGA4(gaCategory, 'HealthCheckRequest', baseGaString);
+
             LBInfoHandler.Invoke(response, true, true, true);
             return;
         }
@@ -101,6 +166,9 @@ class RoutingMiddleware implements IRoute {
         const hostname: string = (request.headers['x-forwarded-host'] as string) ?? (request.headers.host as string);
 
         if (hostname === undefined || hostname === null || hostname === '') {
+            Logger.Warn('Hostname is undefined or null, responding with invalid hostname error');
+            GoogleAnalyticsHelper.FireServerEventGA4(gaCategory, 'InvalidHostname', baseGaString);
+
             response
                 .status(400)
                 .header({
@@ -123,6 +191,9 @@ class RoutingMiddleware implements IRoute {
         const resolvedHost = await NetworkingUtility.ResolveHostname(host);
 
         if (resolvedHost === undefined || resolvedHost === null) {
+            Logger.Warn("Resolved host for '%s' is undefined or null, responding with invalid hostname error", host);
+            GoogleAnalyticsHelper.FireServerEventGA4(gaCategory, 'NXDomain', baseGaString);
+
             response
                 .status(503)
                 .header({
@@ -138,7 +209,7 @@ class RoutingMiddleware implements IRoute {
             return;
         }
 
-        Logger.Debug(`Host '${host}' resolved to '${resolvedHost}'`);
+        Logger.Debug("Host '%s' resolved to '%s'", host, resolvedHost);
 
         if (
             GlobalEnvironment.HateLANAccess &&
@@ -149,6 +220,9 @@ class RoutingMiddleware implements IRoute {
                 NetworkingUtility.IsIPv6Rfc4193(host) ||
                 NetworkingUtility.IsIPv6Rfc3879(host))
         ) {
+            Logger.Warn("Request to '%s' or '%s' is from a LAN, responding with LAN access error", host, resolvedHost);
+            GoogleAnalyticsHelper.FireServerEventGA4(gaCategory, 'LANAccess', baseGaString);
+
             response
                 .status(403)
                 .header({
@@ -177,7 +251,8 @@ class RoutingMiddleware implements IRoute {
             host === RoutingMiddleware.PublicIP ||
             resolvedHost === RoutingMiddleware.PublicIP
         ) {
-            Logger.Warn(`Rejecting request to ${host}`);
+            Logger.Warn("Request to '%s' or '%s' is a loopback, responding with loopback error", host, resolvedHost);
+            GoogleAnalyticsHelper.FireServerEventGA4(gaCategory, 'LoopbackDetected', baseGaString);
 
             // LB level error
             response
@@ -203,7 +278,7 @@ class RoutingMiddleware implements IRoute {
 
         const uri = `${request.secure ? 'https' : 'http'}://${host}:${port}${url}`;
 
-        Logger.Debug(`Proxy request '${request.method}' from client '${request.ip}' on host '${hostname}' to upstream uri '${uri}'`);
+        Logger.Debug("Proxy request '%s' from client '%s' on host '%s' to upstream uri '%s'", request.method, request.ip, hostname, uri);
 
         axios
             .request({
@@ -229,13 +304,23 @@ class RoutingMiddleware implements IRoute {
                 // Do this by finding Access-Control-Allow-Origin and transform it to the original referrer or origin we had (if set)
                 // Else if the origin or referer header is set, then we can use that
 
+                const timing = Date.now() - startTime;
+
                 Logger.Debug(
-                    `Proxy response ${res.status} ('${res.statusText}') from upstream uri '${uri}' at downstream host '${hostname}'`,
+                    "Proxy response %d (%s) from upstream uri '%s' at downstream host '%s' in %dms",
+                    res.status,
+                    res.statusText,
+                    uri,
+                    host,
+                    timing,
+                );
+                GoogleAnalyticsHelper.FireServerEventGA4(
+                    gaCategory,
+                    'ProxyResponse',
+                    `Proxy response ${res.status} (${res.statusText}) from upstream '${uri}' at downstream host '${host}' in ${timing}ms`,
                 );
 
                 if (origin !== undefined) res.headers['access-control-allow-origin'] = origin;
-
-                const timing = Date.now() - startTime;
 
                 res.headers['x-upstream-timing'] = `${timing}ms`;
 
@@ -246,7 +331,17 @@ class RoutingMiddleware implements IRoute {
 
                 if (err.response !== undefined) {
                     Logger.Warn(
-                        `Proxy error response ${err.response.status} ('${err.response.statusText}') from upstream '${uri}' on downstream host '${hostname}'.`,
+                        "Proxy error response %d (%s) from upstream uri '%s' at downstream host '%s' in %dms",
+                        err.response.status,
+                        err.response.statusText,
+                        uri,
+                        host,
+                        timing,
+                    );
+                    GoogleAnalyticsHelper.FireServerEventGA4(
+                        gaCategory,
+                        'ProxyErrorResponse',
+                        `Proxy error response ${err.response.status} (${err.response.statusText}) from upstream '${uri}' at downstream host '${host}' in ${timing}ms`,
                     );
 
                     if (origin !== undefined) err.response.headers['access-control-allow-origin'] = origin;
@@ -261,7 +356,12 @@ class RoutingMiddleware implements IRoute {
 
                 // Check if error is a timeout
                 if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
-                    Logger.Warn(`Proxy timed out from upstream '${uri}' on downstream host '${hostname}' after ${timing}ms.`);
+                    Logger.Warn("Proxy timed out from upstream '%s' on downstream host '%s' after %dms.", uri, hostname, timing);
+                    GoogleAnalyticsHelper.FireServerEventGA4(
+                        gaCategory,
+                        'ProxyTimeout',
+                        `Proxy timeout from upstream '${uri}' on downstream host '${hostname}' after ${timing}ms`,
+                    );
 
                     response.status(504);
 
@@ -276,7 +376,12 @@ class RoutingMiddleware implements IRoute {
                     return;
                 }
 
-                Logger.Error(`Proxy error '${err.message}' from upstream url '${uri}' on downstream host '${hostname}'.`);
+                Logger.Error("Proxy error '%s' from upstream uri '%s' at downstream host '%s' in %dms", err.message, uri, hostname, timing);
+                GoogleAnalyticsHelper.FireServerEventGA4(
+                    gaCategory,
+                    'ProxyErrorUnknown',
+                    `Proxy error '${err.message}' from upstream '${uri}' at downstream host '${hostname}' in ${timing}ms`,
+                );
 
                 next(); // We didn't get a response so it'll just pass it onto upstream error handler
             });
