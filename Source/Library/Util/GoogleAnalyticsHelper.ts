@@ -22,15 +22,16 @@
 
 import { Logger } from './Logger';
 import { GlobalEnvironment } from './GlobalEnvironment';
-import { NetworkingUtility } from './NetworkingUtility';
 import { GoogleAnalyticsMetricsProtocol } from 'Library/GA4/GA4';
+
+import net from '@mfdlabs/net';
 
 /**
  * A wrapper class for the GA4 client.
  */
 export abstract class GoogleAnalyticsHelper {
     private static _isInitialized: bool = false;
-    private static _clientId = NetworkingUtility.GetLocalIP();
+    private static _clientId = net.getLocalIPv4();
 
     public static Initialize(): void {
         if (!GlobalEnvironment.EnableGA4Client) return;

@@ -23,14 +23,14 @@
 
 import { Logger } from 'Library/Util/Logger';
 import { GlobalEnvironment } from 'Library/Util/GlobalEnvironment';
-import { NetworkingUtility } from 'Library/Util/NetworkingUtility';
+import { WebUtility } from 'Library/Util/WebUtility';
 
 import { RequestHandler } from 'express';
 
 export const CrawlerCheckHandler = ((request, response, resumeFunction) => {
     if (!GlobalEnvironment.ShouldCheckCrawler) return resumeFunction();
 
-    if (NetworkingUtility.IsCrawler(request.headers['user-agent'])) {
+    if (WebUtility.IsCrawler(request.headers['user-agent'])) {
         Logger.Log(`Crawler detected: '%s'`, request.headers['user-agent']);
 
         if (GlobalEnvironment.AbortConnectionIfCrawler) {

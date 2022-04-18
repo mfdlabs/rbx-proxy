@@ -24,8 +24,8 @@
 
 import { Logger } from 'Library/Util/Logger';
 import { GlobalEnvironment } from 'Library/Util/GlobalEnvironment';
-import { NetworkingUtility } from 'Library/Util/NetworkingUtility';
 
+import net from '@mfdlabs/net';
 import { RequestHandler } from 'express';
 
 export const CidrCheckHandler = ((request, response, resumeFunction) => {
@@ -35,8 +35,8 @@ export const CidrCheckHandler = ((request, response, resumeFunction) => {
     const allowedIPv6Cidrs = GlobalEnvironment.AllowedIPv6Cidrs;
 
     if (
-        !NetworkingUtility.IsIPv4InCidrRangeList(request.ip, allowedIPv4Cidrs) &&
-        !NetworkingUtility.IsIPv6InCidrRangeList(request.ip, allowedIPv6Cidrs)
+        !net.isIPv4InCidrRangeList(request.ip, allowedIPv4Cidrs) &&
+        !net.isIPv6InCidrRangeList(request.ip, allowedIPv6Cidrs)
     ) {
         Logger.Log(`IP '%s' is not in allowed CIDR list`, request.ip);
 

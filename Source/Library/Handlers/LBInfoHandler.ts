@@ -20,8 +20,9 @@
     Written by: Nikita Petko
 */
 
-import { NetworkingUtility } from 'Library/Util/NetworkingUtility';
+import { WebUtility } from 'Library/Util/WebUtility';
 
+import net from '@mfdlabs/net';
 import { Response } from 'express';
 
 export class LBInfoHandler {
@@ -44,12 +45,12 @@ export class LBInfoHandler {
         if (process.env.MFDLABS_ARC_SERVER) {
             const serverResponse = `mfdlabs/arc-lb node ${
                 process.version
-            } (http://lb-services.ops-dev.vmminfra.dev/ui/machine/${NetworkingUtility.GetMachineID()}/summary) (${NetworkingUtility.GetMachineID()}->${NetworkingUtility.GetLocalIP()})`;
+            } (http://lb-services.ops-dev.vmminfra.dev/ui/machine/${WebUtility.GetMachineID()}/summary) (${WebUtility.GetMachineID()}->${net.getLocalIPv4()}::${net.getLocalIPv6()})`;
 
             response.header({
                 Server: serverResponse,
                 'X-Powered-By': `mfdlabs/arc-lb node ${process.version}`,
-                'X-LB-Service': `${NetworkingUtility.GetMachineID()}->${NetworkingUtility.GetLocalIP()}`,
+                'X-LB-Service': `${WebUtility.GetMachineID()}->${net.getLocalIPv4()}::${net.getLocalIPv6()}`,
             });
 
             if (writeCustomResponse) {

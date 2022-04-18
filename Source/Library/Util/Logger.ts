@@ -21,7 +21,7 @@
 */
 
 import { __baseDirName } from 'Library/Directories';
-import { NetworkingUtility } from './NetworkingUtility';
+import { WebUtility } from './WebUtility';
 import { GlobalEnvironment } from './GlobalEnvironment';
 
 import { join as JoinPath } from 'path';
@@ -32,6 +32,7 @@ import {
     existsSync as CheckDoesFileOrFolderExist,
     rmSync as RemoveDirectory,
 } from 'fs';
+import net from '@mfdlabs/net';
 
 /**
  * Log colors.
@@ -55,8 +56,8 @@ export abstract class Logger {
     // Private fields
     ////////////////////////////////////////////////////////////////////////////////
 
-    private static readonly LocalIP = NetworkingUtility.GetLocalIP();
-    private static readonly MachineID = NetworkingUtility.GetMachineID();
+    private static readonly LocalIP = net.getLocalIPv4();
+    private static readonly MachineID = WebUtility.GetMachineID();
     private static readonly BaseDirName = Logger.GetBaseDirName();
     private static readonly FileName = FormatString(
         'log_%s_%s_%s.log',
@@ -185,7 +186,7 @@ export abstract class Logger {
      * @param {bool} overrideGlobalConfig - If true, the global config will be ignored.
      * @returns {void} - Nothing.
      */
-    public static TryClearLogs(overrideGlobalConfig: bool = false) {
+    public static TryClearLogs(overrideGlobalConfig: bool = false): void {
         Logger.Log('Try clear logs.');
 
         if (GlobalEnvironment.PersistLocalLogs) {
@@ -217,7 +218,7 @@ export abstract class Logger {
      * @param {any[]} ...args - The arguments to pass to the message.
      * @returns {void} - Nothing.
      */
-    public static Log(message: string, ...args: any[]): void {
+    public static async Log(message: string, ...args: any[]): Promise<void> {
         Logger.LogColorString('LOG', LogColor.BrightWhite, message, ...args);
         Logger.LogLocally('LOG', message, ...args);
     }
@@ -228,7 +229,7 @@ export abstract class Logger {
      * @param {any[]} ...args - The arguments to pass to the message.
      * @returns {void} - Nothing.
      */
-    public static Warn(message: string, ...args: any[]): void {
+    public static async Warn(message: string, ...args: any[]): Promise<void> {
         Logger.LogColorString('WARN', LogColor.BrightYellow, message, ...args);
         Logger.LogLocally('WARN', message, ...args);
     }
@@ -240,7 +241,7 @@ export abstract class Logger {
      * @returns {void} - Nothing.
      * @remarks This will create a trace back directly from this method, not the method that called it.
      */
-    public static Trace(message: string, ...args: any[]): void {
+    public static async Trace(message: string, ...args: any[]): Promise<void> {
         Logger.LogColorString('TRACE', LogColor.BrightMagenta, message, ...args);
         Logger.LogLocally('TRACE', message, ...args);
     }
@@ -251,7 +252,7 @@ export abstract class Logger {
      * @param {any[]} ...args - The arguments to pass to the message.
      * @returns {void} - Nothing.
      */
-    public static Debug(message: string, ...args: any[]): void {
+    public static async Debug(message: string, ...args: any[]): Promise<void> {
         Logger.LogColorString('DEBUG', LogColor.BrightMagenta, message, ...args);
         Logger.LogLocally('DEBUG', message, ...args);
     }
@@ -262,7 +263,7 @@ export abstract class Logger {
      * @param {any[]} ...args - The arguments to pass to the message.
      * @returns {void} - Nothing.
      */
-    public static Info(message: string, ...args: any[]): void {
+    public static async Info(message: string, ...args: any[]): Promise<void> {
         Logger.LogColorString('INFO', LogColor.BrightBlue, message, ...args);
         Logger.LogLocally('INFO', message, ...args);
     }
@@ -273,7 +274,7 @@ export abstract class Logger {
      * @param {any[]} ...args - The arguments to pass to the message.
      * @returns {void} - Nothing.
      */
-    public static Error(message: string, ...args: any[]): void {
+    public static async Error(message: string, ...args: any[]): Promise<void> {
         Logger.LogColorString('ERROR', LogColor.BrightRed, message, ...args);
         Logger.LogLocally('ERROR', message, ...args);
     }

@@ -20,14 +20,16 @@
     Written by: Nikita Petko
 */
 
-import { LBInfoHandler } from 'Library/Handlers/LBInfoHandler';
-import { IRoute, RoutingMethod } from 'Library/Setup/Interfaces/IRoute';
-import { GlobalEnvironment } from 'Library/Util/GlobalEnvironment';
 import { Logger } from 'Library/Util/Logger';
-import { NetworkingUtility } from 'Library/Util/NetworkingUtility';
+import { WebUtility } from 'Library/Util/WebUtility';
+import { LBInfoHandler } from 'Library/Handlers/LBInfoHandler';
+import { GlobalEnvironment } from 'Library/Util/GlobalEnvironment';
+import { IRoute, RoutingMethod } from 'Library/Setup/Interfaces/IRoute';
+import { GoogleAnalyticsHelper } from 'Library/Util/GoogleAnalyticsHelper';
+
+import net from '@mfdlabs/net';
 import axios, { Method } from 'axios';
 import { Request, Response, NextFunction } from 'express';
-import { GoogleAnalyticsHelper } from 'Library/Util/GoogleAnalyticsHelper';
 
 /*
     There are 5 forms of loopback we can do here.
@@ -87,7 +89,7 @@ class RoutingMiddleware implements IRoute {
     private static PublicIP: string;
 
     public async Callback(request: Request, response: Response, next: NextFunction) {
-        const gaCategory = `Proxy_${NetworkingUtility.GenerateUUIDV4()}`;
+        const gaCategory = `Proxy_${WebUtility.GenerateUUIDV4()}`;
 
         let baseGaString = '';
         const headersAsString = Object.keys(request.headers)
@@ -115,7 +117,7 @@ class RoutingMiddleware implements IRoute {
         GoogleAnalyticsHelper.FireServerEventGA4(gaCategory, 'Request', baseGaString);
 
         if (RoutingMiddleware.PublicIP === undefined) {
-            RoutingMiddleware.PublicIP = await NetworkingUtility.GetPublicIP();
+            RoutingMiddleware.PublicIP = await net.getPublicIP();
 
             Logger.Info("Public IP Initialized as '%s'", RoutingMiddleware.PublicIP);
 
@@ -188,7 +190,7 @@ class RoutingMiddleware implements IRoute {
 
         // We have to be careful here to not allow loopback requests or requests to the proxy itself as they will cause an infinite loop
 
-        const resolvedHost = await NetworkingUtility.ResolveHostname(host);
+        const resolvedHost = await net.resolveHostname(host);
 
         if (resolvedHost === undefined || resolvedHost === null) {
             Logger.Warn("Resolved host for '%s' is undefined or null, responding with invalid hostname error", host);
@@ -213,12 +215,12 @@ class RoutingMiddleware implements IRoute {
 
         if (
             GlobalEnvironment.HateLANAccess &&
-            (NetworkingUtility.IsIPv4Rfc1918(resolvedHost) ||
-                NetworkingUtility.IsIPv6Rfc4193(resolvedHost) ||
-                NetworkingUtility.IsIPv6Rfc3879(resolvedHost) ||
-                NetworkingUtility.IsIPv4Rfc1918(host) ||
-                NetworkingUtility.IsIPv6Rfc4193(host) ||
-                NetworkingUtility.IsIPv6Rfc3879(host))
+            (net.isIPv4RFC1918(resolvedHost) ||
+                net.isIPv6RFC4193(resolvedHost) ||
+                net.isIPv6RFC3879(resolvedHost) ||
+                net.isIPv4RFC1918(host) ||
+                net.isIPv6RFC4193(host) ||
+                net.isIPv6RFC3879(host))
         ) {
             Logger.Warn("Request to '%s' or '%s' is from a LAN, responding with LAN access error", host, resolvedHost);
             GoogleAnalyticsHelper.FireServerEventGA4(gaCategory, 'LANAccess', baseGaString);
@@ -240,14 +242,14 @@ class RoutingMiddleware implements IRoute {
         }
 
         if (
-            NetworkingUtility.IsIPv4Loopback(host) ||
-            NetworkingUtility.IsIPv6Loopback(host) ||
-            NetworkingUtility.IsIPv4Loopback(resolvedHost) ||
-            NetworkingUtility.IsIPv6Loopback(resolvedHost) ||
-            resolvedHost === NetworkingUtility.GetLocalIP() ||
-            host === NetworkingUtility.GetLocalIP() ||
-            resolvedHost === NetworkingUtility.GetLocalIPv6() ||
-            host === NetworkingUtility.GetLocalIPv6() ||
+            net.isIPv4Loopback(host) ||
+            net.isIPv6Loopback(host) ||
+            net.isIPv4Loopback(resolvedHost) ||
+            net.isIPv6Loopback(resolvedHost) ||
+            resolvedHost === net.getLocalIPv4() ||
+            host === net.getLocalIPv4() ||
+            resolvedHost === net.getLocalIPv6() ||
+            host === net.getLocalIPv6() ||
             host === RoutingMiddleware.PublicIP ||
             resolvedHost === RoutingMiddleware.PublicIP
         ) {

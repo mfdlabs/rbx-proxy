@@ -32,7 +32,7 @@ import { StandardInHandler } from './StandardInHandler';
 import { WebHelper } from 'Library/Setup/Lib/WebHelper';
 import { __baseDirName } from 'Library/Directories';
 import { LBInfoHandler } from 'Library/Handlers/LBInfoHandler';
-import { NetworkingUtility } from 'Library/Util/NetworkingUtility';
+import { WebUtility } from 'Library/Util/WebUtility';
 import { CidrCheckHandler } from 'Library/Middleware/CidrCheck';
 import { CrawlerCheckHandler } from 'Library/Middleware/CrawlerCheck';
 import { GoogleAnalyticsHelper } from 'Library/Util/GoogleAnalyticsHelper';
@@ -103,7 +103,7 @@ const sharedSettings = {
 
     ProxyServer.use((error: Error, request: Request, response: Response, _next: NextFunction) => {
         // HTML encode the error stack
-        const errorStack = NetworkingUtility.HtmlEncode(error.stack);
+        const errorStack = WebUtility.HtmlEncode(error.stack);
 
         // Log the error
         GoogleAnalyticsHelper.FireServerEventGA4('Server', 'Error', errorStack);

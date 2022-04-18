@@ -159,18 +159,6 @@ export abstract class WebHelper {
                 );
             return [insecureServer, sslServer];
         } catch (err) {
-            // Determine if it was because we didn't have permissions to listen on the port.
-            if (err.code === 'EACCES') {
-                Logger.Error(`The server '%s' could not listen on port %d.`, options.Hostname, options.InsecurePort);
-                return [null, null];
-            }
-
-            // Determine if it was because we didn't have permissions to listen on the address.
-            if (err.code === 'EADDRINUSE') {
-                Logger.Error(`The server '%s' could not listen on address '%s'.`, options.Hostname, options.Hostname);
-                return [null, null];
-            }
-
             Logger.Error(`Error occurred when starting a server! Stack: %s`, err.stack);
             return [null, null];
         }

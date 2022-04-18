@@ -21,8 +21,8 @@
 */
 
 import { Logger } from 'Library/Util/Logger';
-import { NetworkingUtility } from 'Library/Util/NetworkingUtility';
 
+import net from '@mfdlabs/net';
 import { RequestHandler } from 'express';
 
 export const LoggingHandler = ((request, _response, resumeFunction) => {
@@ -30,8 +30,8 @@ export const LoggingHandler = ((request, _response, resumeFunction) => {
 
     if (request.ip === '127.0.0.1') lp = '127.0.0.1';
     else if (request.ip === '::1') lp = '[::1]';
-    else if (NetworkingUtility.IsIPv6(request.ip)) lp = `[${NetworkingUtility.GetLocalIPv6()}]`;
-    else lp = NetworkingUtility.GetLocalIP();
+    else if (net.isIPv6(request.ip)) lp = `[${net.getLocalIPv6()}]`;
+    else lp = net.getLocalIPv4();
 
     const forwardedPort = request.headers['x-forwarded-port'] as string;
 
