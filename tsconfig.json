@@ -2,13 +2,13 @@
   "compilerOptions": {
     "target": "es2021",
     "module": "commonjs",
-    "outDir": "lib",
+    "outDir": "dist",
     "rootDir": "src",
     "noUnusedLocals": true,
     "stripInternal": true,
     "removeComments": false,
     "declaration": true,
-    "declarationDir": "lib/types",
+    "declarationDir": "dist/types",
     "esModuleInterop": true,
     "paths": {
       "lib*": ["./src/lib", "./src/lib*"]
