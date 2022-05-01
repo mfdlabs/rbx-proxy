@@ -201,15 +201,15 @@ export abstract class GoogleAnalyticsMetricsProtocol {
             }
             events[i] = snakeCaseEvent as GA4Event;
         }
+        
+        if (!this.ValidateEvent(request)) return;
+        if (!(await this.ValidateEventServerSide(snakeCaseRequest))) return;
 
         const response = await axios.post(url, snakeCaseRequest, {
             headers: {
                 'Content-Type': 'application/json',
             },
         });
-
-        if (!this.ValidateEvent(request)) return;
-        if (!(await this.ValidateEventServerSide(snakeCaseRequest))) return;
 
         if (response.status != 204) {
             this._logError?.call(this, 'GA4: Unknown error: %s', response.data);
