@@ -181,6 +181,15 @@ abstract class Environment {
   public static get ga4DisableLoggingBody(): boolean {
     return this.getSettingOrDefault('GA4_DISABLE_LOGGING_BODY', false);
   }
+
+  /**
+   * Used by the entry point.
+   * 
+   * If true, we will log startup information.
+   */
+  public static get logStartupInfo(): boolean {
+    return this.getSettingOrDefault('LOG_STARTUP_INFO', false);
+  }
 }
 
 export = Environment;
