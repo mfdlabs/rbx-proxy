@@ -1,28 +1,19 @@
 {
-	"compilerOptions": {
-		"experimentalDecorators": true,
-		"target": "es2020",
-		"module": "commonjs",
-		"jsx": "react",
-		"outDir": "Bin",
-		"rootDir": "Source",
-		"noUnusedLocals": true,
-		"moduleResolution": "node",
-		"esModuleInterop": true,
-		"preserveSymlinks": true,
-		"skipLibCheck": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
-		"stripInternal": true,
-		"removeComments": true,
-		"paths": {
-			"Library*": [
-				"./Source/Library",
-				"./Source/Library*"
-			],
-		}
-	},
-	"include": [
-		"Source/"
-	]
+  "compilerOptions": {
+    "target": "es2021",
+    "module": "commonjs",
+    "outDir": "lib",
+    "rootDir": "src",
+    "noUnusedLocals": true,
+    "stripInternal": true,
+    "removeComments": false,
+    "declaration": true,
+    "declarationDir": "lib/types",
+    "esModuleInterop": true,
+    "paths": {
+      "lib*": ["./src/lib", "./src/lib*"]
+    }
+  },
+  "include": ["src/"],
+  "exclude": ["src/test/"]
 }

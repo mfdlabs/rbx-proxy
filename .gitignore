@@ -1,4 +1,4 @@
-Bin
+lib
 node_modules
 .env
-Directories.ts
+src/lib/directories.ts
