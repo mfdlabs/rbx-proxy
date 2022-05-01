@@ -33,22 +33,36 @@ stdinHandler();
 import dotenvLoader from 'lib/utility/dotenvLoader';
 dotenvLoader.reloadEnvironment();
 
+import googleAnalytics from 'lib/utility/googleAnalytics';
+googleAnalytics.initialize();
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import express, { NextFunction, Request, Response } from 'express';
-import loggingMiddleware from './lib/middleware/loggingMiddleware';
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Primary Declarations
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 import web from 'lib/setup';
-import { projectDirectoryName } from 'lib/directories';
+import logger from 'lib/utility/logger';
 import webUtility from 'lib/utility/webUtility';
+import environment from 'lib/utility/environment';
+import { projectDirectoryName } from 'lib/directories';
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Middleware
+////////////////////////////////////////////////////////////////////////////////////////////////////
+import loggingMiddleware from './lib/middleware/loggingMiddleware';
 import cidrCheckMiddleware from 'lib/middleware/cidrCheckMiddleware';
 import crawlerCheckMiddleware from 'lib/middleware/crawlerCheckMiddleware';
-import googleAnalytics from 'lib/utility/googleAnalytics';
-import logger  from 'lib/utility/logger';
-
-import * as path from 'path';
 import loadBalancerInfoMiddleware from 'lib/middleware/loadBalancerInfoMiddleware';
 
-googleAnalytics.initialize();
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Third Party Declarations
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+import * as path from 'path';
+import express, { NextFunction, Request, Response } from 'express';
+
 
 const sharedSettings = {
   baseTlsDirectory: path.join(projectDirectoryName, 'ssl'),
@@ -78,9 +92,10 @@ const sharedSettings = {
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  web.overrideLoggers(logger.information, logger.warning, logger.debug, logger.error);
+  if (environment.logStartupInfo) web.overrideLoggers(logger.information, logger.warning, logger.debug, logger.error);
+
   web.overrideRootProjectPath(path.join(projectDirectoryName, 'lib'));
-  web.overrideBaseRoutesPath('Routes');
+  web.overrideBaseRoutesPath('routes');
 
   web.configureServer({
     allowRoutes: true,
@@ -91,7 +106,7 @@ const sharedSettings = {
     routeConfiguration: {
       debugName: 'rbx-proxy.lb.vmminfra.net',
       logSetup: true,
-      routesPath: web.getRoutesDirectory('Proxy'),
+      routesPath: web.getRoutesDirectory('proxy'),
     },
     trustProxy: false,
   });
