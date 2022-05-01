@@ -29,26 +29,29 @@ DotENV.Load();
 import Application, { NextFunction, Request, Response } from 'express';
 import { LoggingHandler } from './Library/Middleware/Logger';
 import { StandardInHandler } from './StandardInHandler';
-import { WebHelper } from 'Library/Setup/Lib/WebHelper';
-import { __baseDirName } from 'Library/Directories';
+import web from 'Library/Setup/Lib/WebHelper';
+import { __baseDirName, __sslDirName } from 'Library/Directories';
 import { LBInfoHandler } from 'Library/Handlers/LBInfoHandler';
 import { WebUtility } from 'Library/Util/WebUtility';
 import { CidrCheckHandler } from 'Library/Middleware/CidrCheck';
 import { CrawlerCheckHandler } from 'Library/Middleware/CrawlerCheck';
 import { GoogleAnalyticsHelper } from 'Library/Util/GoogleAnalyticsHelper';
+import { Logger } from 'Library/Util/Logger';
+
+import * as path from 'path';
 
 GoogleAnalyticsHelper.Initialize();
 
 const sharedSettings = {
-    UseSsl: true,
-    UseInsecure: true,
-    InsecurePort: 80,
-    SslPort: 443,
-    UseSslDirectory: true,
-    CertificateFileName: 'mfdlabs-all-authority-roblox-local.crt',
-    CertificateKeyFileName: 'mfdlabs-all-authority-roblox-local.key',
-    CertificateKeyPassword: 'testing123',
-    RootCertificateFileName: 'mfdlabs-root-ca-roblox.crt',
+    tls: true,
+    insecure: true,
+    insecurePort: 80,
+    tlsPort: 443,
+    cert: 'mfdlabs-all-authority-roblox-local.crt',
+    key: 'mfdlabs-all-authority-roblox-local.key',
+    passphrase: 'testing123',
+    chain: 'mfdlabs-root-ca-roblox.crt',
+    baseTlsDirectory: __sslDirName
 };
 
 (async () => {
@@ -66,15 +69,17 @@ const sharedSettings = {
         next();
     });
 
-    WebHelper.SetBaseRoutesPath('Routes');
+    web.overrideLoggers(Logger.Info, Logger.Warn, Logger.Debug, Logger.Error);
+    web.overrideRootProjectPath(path.join(__baseDirName, 'Bin'));
+    web.overrideBaseRoutesPath('Routes');
 
-    WebHelper.ConfigureServer({
+    web.configureServer({
         Application: ProxyServer,
         AllowRoutes: true,
         RouteConfiguration: {
-            RouteStorePath: WebHelper.GetRoutesDirectory('Proxy'),
-            LogRouteSetup: true,
-            SiteName: 'rbx-proxy.lb.vmminfra.net',
+            routesPath: web.getRoutesDirectory('Proxy'),
+            logSetup: true,
+            debugName: 'rbx-proxy.lb.vmminfra.net',
         },
         TrustProxy: false,
         NoXPoweredBy: true,
@@ -121,15 +126,15 @@ const sharedSettings = {
             );
     });
 
-    WebHelper.StartServer({
-        Application: ProxyServer,
-        Hostname: '0.0.0.0',
+    web.startServer({
+        app: ProxyServer,
+        bind: '0.0.0.0',
         ...sharedSettings,
     });
 
-    WebHelper.StartServer({
-        Application: ProxyServer,
-        Hostname: '::',
+    web.startServer({
+        app: ProxyServer,
+        bind: '::',
         ...sharedSettings,
     });
 })();
