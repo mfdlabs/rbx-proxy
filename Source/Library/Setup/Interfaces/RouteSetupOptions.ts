@@ -15,7 +15,7 @@
 */
 
 /*
-    File Name: IRouteSetupOptions.ts
+    File Name: RouteSetupOptions.ts
     Description: Represents the options for the file router.
     Written by: Nikita Petko
 */
@@ -23,19 +23,19 @@
 /**
  * Represents the options for the file router.
  */
-export interface IRouteSetupOptions {
+export default interface RouteSetupOptions {
     /**
      * The root directory to start looking for files.
      */
-    RouteStorePath?: string;
+    routesPath?: string;
 
     /**
      * Should we log the setup process?
      */
-    LogRouteSetup?: boolean;
+    logSetup?: boolean;
 
     /**
      * This is only ingested by the logger for debugging purposes.
      */
-    SiteName?: string;
+    debugName?: string;
 }

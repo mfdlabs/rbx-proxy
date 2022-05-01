@@ -20,29 +20,29 @@
     Written by: Nikita Petko
 */
 
-import { join } from 'path';
-import { readdirSync, statSync } from 'fs';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * A simple helper that recursively walks through the directory structure.
  */
-export abstract class Walkers {
+export default abstract class Walkers {
     /**
      * Recursively walks through the directory structure.
      * @param {string} directoryName The directory to walk through.
      * @param {string[]} paths The paths to be returned. This parameter is only used internally when recursively walking through the directory structure.
      * @returns {string[]} The paths to the files in the directory.
      */
-    public static WalkDirectory(directoryName: string, paths?: string[]): string[] {
-        const directory = readdirSync(directoryName);
+    public static walkDirectory(directoryName: string, paths?: string[]): string[] {
+        const directory = fs.readdirSync(directoryName);
         paths = paths || [];
 
         directory.forEach((directoryOrFile) => {
-            const directoryNameV2 = directoryName + '/' + directoryOrFile;
-            if (statSync(directoryNameV2).isDirectory()) {
-                paths = Walkers.WalkDirectory(directoryNameV2, paths);
+            const directoryNameV2 = path.join(directoryName, directoryOrFile);
+            if (fs.statSync(directoryNameV2).isDirectory()) {
+                paths = this.walkDirectory(directoryNameV2, paths);
             } else {
-                paths.push(join(directoryName, '/', directoryOrFile));
+                paths.push(directoryNameV2);
             }
         });
 

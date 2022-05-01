@@ -15,24 +15,23 @@
 */
 
 /*
-    File Name: IConfigurationOptions.ts
+    File Name: ConfigurationOptions.ts
     Description: Represents the configuration options for the application.
     Written by: Nikita Petko
 */
 
-import { IExpressRouterOptions } from './IExpressRouterOptions';
-import { IRouteSetupOptions } from './IRouteSetupOptions';
+import RouteSetupOptions from './RouteSetupOptions';
 
-import { Express } from 'express';
+import * as express from 'express';
 
 /**
  * Represents the configuration options for the application.
  */
-export interface IConfigurationOptions {
+export default interface ConfigurationOptions {
     /**
      * The Express application to configure.
      */
-    Application: Express;
+    Application: express.Application;
 
     /**
      * Determines if you want to map file routes like IRoutingController.
@@ -42,12 +41,12 @@ export interface IConfigurationOptions {
     /**
      * These are the options for the Express router.
      */
-    RoutingOpts?: IExpressRouterOptions;
+    RoutingOpts?: express.RouterOptions;
 
     /**
      * These are the options for our own file router.
      */
-    RouteConfiguration?: IRouteSetupOptions;
+    RouteConfiguration?: RouteSetupOptions;
 
     /**
      * This signifies if we should trust proxy headers.

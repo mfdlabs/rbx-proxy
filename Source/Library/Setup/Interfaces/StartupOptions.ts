@@ -20,16 +20,16 @@
     Written by: Nikita Petko
 */
 
-import { Express } from 'express';
+import * as express from 'express';
 
 /**
  * Represents the options for the startup process.
  */
-export interface IStartupOptions {
+export default interface StartupOptions {
     /**
      * The Express application to configure.
      */
-    Application: Express;
+    app: express.Application;
 
     /**
      * The host, or IP address, to listen on.
@@ -39,7 +39,7 @@ export interface IStartupOptions {
      * 
      * If not specified then it will default to '::'
      */
-    Hostname?: string;
+    bind?: string;
 
     /**
      * Determines if the SSL server should be enabled.
@@ -49,7 +49,7 @@ export interface IStartupOptions {
      * 
      * This will default to false.
      */
-    UseSsl?: bool;
+    tls?: bool;
 
     /**
      * Determine if the HTTP server should be enabled.
@@ -57,25 +57,25 @@ export interface IStartupOptions {
      * 
      * This will default to true.
      */
-    UseInsecure?: bool;
+    insecure?: bool;
 
     /**
      * An override for the default port of 443.
      * This will only apply if UseSsl is true.
      */
-    SslPort?: int;
+    tlsPort?: int;
 
     /**
      * An override for the default port of 80.
      * This will only apply if UseInsecure is true.
      */
-    InsecurePort?: int;
+    insecurePort?: int;
 
     /**
      * This determines if we should use HTTP/2.0 over HTTP/1.1 for SSL.
      * This will only apply if UseSsl is true.
      */
-    UseSslV2?: bool;
+    tlsV2?: bool;
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Certificate and Key Options
@@ -87,7 +87,7 @@ export interface IStartupOptions {
      * 
      * If UseSslDirectory is false then you will need to supply the absolute path to the certificate file.
      */
-    CertificateFileName?: string;
+    cert?: string;
 
     /**
      * This represents the name of the certificate key file.
@@ -95,7 +95,7 @@ export interface IStartupOptions {
      * 
      * If UseSslDirectory is false then you will need to supply the absolute path to the certificate key file.
      */
-    CertificateKeyFileName?: string;
+    key?: string;
 
     /**
      * This represents the name of the certificate's root/chain file.
@@ -105,17 +105,17 @@ export interface IStartupOptions {
      * 
      * If UseSslDirectory is false then you will need to supply the absolute path to the certificate root/chain file.
      */
-    RootCertificateFileName?: string;
+    chain?: string | string[];
 
     /**
      * This represents the password for the certificate key file if it is encrypted.
      * 
      * This is not required but we highly recommend you encrypt your certificate keys.
      */
-    CertificateKeyPassword?: string;
+    passphrase?: string;
 
     /**
-     * This determines if we should use the __sslDirName from Directories.ts.
+     * The base directory for the SSL certificates.
      */
-    UseSslDirectory?: bool;
+    baseTlsDirectory?: string;
 }

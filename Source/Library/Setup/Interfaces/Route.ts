@@ -15,43 +15,23 @@
 */
 
 /*
-    File Name: IRoute.ts
+    File Name: Route.ts
     Description: Represents an interface to implement for any routes.
     Written by: Nikita Petko
 */
 
-import { NextFunction, Request, Response } from 'express';
+import { RoutingMethod } from '../Types/RoutingMethod';
 
-/**
- * A type that is used to represent the allowed HTTP method for the route.
- * Use ALL if you are using multiple methods.
- */
-export type RoutingMethod =
-    | 'get'
-    | 'GET'
-    | 'delete'
-    | 'DELETE'
-    | 'head'
-    | 'HEAD'
-    | 'options'
-    | 'OPTIONS'
-    | 'post'
-    | 'POST'
-    | 'put'
-    | 'PUT'
-    | 'patch'
-    | 'PATCH'
-    | 'all'
-    | 'ALL';
+import { NextFunction, Request, Response } from 'express';
 
 /**
  * Represents an interface to implement for any routes.
  */
-export interface IRoute {
+export default interface Route {
     /**
      * The method to use for the route.
      */
-    RequestMethod: RoutingMethod;
+    requestMethod: RoutingMethod;
 
     /**
      * A callback function to be called when the route is invoked.
@@ -60,5 +40,5 @@ export interface IRoute {
      * @param {NextFunction} next The next handler to be called.
      * @returns {any} This can return anything but will most likey be a promise.
      */
-    Callback(request: Request, response: Response, next: NextFunction): any;
+    invoke(request: Request, response: Response, next: NextFunction): any;
 }
