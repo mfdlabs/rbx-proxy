@@ -1,7 +1,7 @@
 {
-	"name": "website-template",
-	"version": "1.313.88764",
-	"description": "A website template based on MFDLABS/QRefSysWeb.fx",
+	"name": "rbx-proxy",
+	"version": "0.0.1",
+	"description": "A website for proxying host based requests and transforming Roblox Test Site Hostnames to Production Hostnames",
 	"main": "Bin/Main.js",
 	"scripts": {
 		"Start-Main-Job": "node --no-deprecation Bin/Main.js",
@@ -22,7 +22,7 @@
 		"typescript": "^4.2.3"
 	},
 	"dependencies": {
-		"@mfdlabs/net": "^1.0.0",
+		"@mfdlabs/net": "^1.0.5",
 		"axios": "^0.26.1",
 		"body-parser": "^1.20.0",
 		"dotenv": "^16.0.0",
