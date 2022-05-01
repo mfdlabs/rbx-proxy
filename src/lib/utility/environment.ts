@@ -190,6 +190,15 @@ abstract class Environment {
   public static get logStartupInfo(): boolean {
     return this.getSettingOrDefault('LOG_STARTUP_INFO', false);
   }
+
+  /**
+   * Used by the entry point.
+   * 
+   * If true, we will disable IPv6 support.
+   */
+  public static get disableIPv6(): boolean {
+    return this.getSettingOrDefault('DISABLE_IPV6', false);
+  }
 }
 
 export = Environment;

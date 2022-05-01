@@ -63,7 +63,6 @@ import loadBalancerInfoMiddleware from 'lib/middleware/loadBalancerInfoMiddlewar
 import * as path from 'path';
 import express, { NextFunction, Request, Response } from 'express';
 
-
 const sharedSettings = {
   baseTlsDirectory: path.join(projectDirectoryName, 'ssl'),
   cert: 'mfdlabs-all-authority-roblox-local.crt',
@@ -94,7 +93,7 @@ const sharedSettings = {
 
   if (environment.logStartupInfo) web.overrideLoggers(logger.information, logger.warning, logger.debug, logger.error);
 
-  web.overrideRootProjectPath(path.join(projectDirectoryName, 'lib'));
+  web.overrideRootProjectPath(path.join(projectDirectoryName, 'dist'));
   web.overrideBaseRoutesPath('routes');
 
   web.configureServer({
@@ -156,9 +155,10 @@ const sharedSettings = {
     ...sharedSettings,
   });
 
-  web.startServer({
-    app: proxyServer,
-    bind: '::',
-    ...sharedSettings,
-  });
+  if (!environment.disableIPv6)
+    web.startServer({
+      app: proxyServer,
+      bind: '::',
+      ...sharedSettings,
+    });
 })();
