@@ -1,0 +1,9 @@
+*
+!src
+src/lib/directories.ts
+!ssl
+!package*.json
+!path.js
+!LICENSE
+!README.md
+!tsconfig.json
