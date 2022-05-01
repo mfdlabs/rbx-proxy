@@ -24,7 +24,8 @@ import { Logger } from 'Library/Util/Logger';
 import { WebUtility } from 'Library/Util/WebUtility';
 import { LBInfoHandler } from 'Library/Handlers/LBInfoHandler';
 import { GlobalEnvironment } from 'Library/Util/GlobalEnvironment';
-import { IRoute, RoutingMethod } from 'Library/Setup/Interfaces/IRoute';
+import Route from 'Library/Setup/Interfaces/Route';
+import { RoutingMethod } from 'Library/Setup/Types/RoutingMethod';
 import { GoogleAnalyticsHelper } from 'Library/Util/GoogleAnalyticsHelper';
 
 import net from '@mfdlabs/net';
@@ -40,8 +41,8 @@ import { Request, Response, NextFunction } from 'express';
     5. Link-Local -> LAN, while this one isn't technically a loopback and is very rare, it is used to signify that a client is somehow connecting to itself through a link-local address.
 */
 
-class RoutingMiddleware implements IRoute {
-    public RequestMethod = 'ALL' as RoutingMethod;
+class RoutingMiddleware implements Route {
+    public requestMethod = 'ALL' as RoutingMethod;
 
     private static TransformRequestHost(host: string): string {
         if (host === undefined || host === null) return null;
@@ -88,7 +89,7 @@ class RoutingMiddleware implements IRoute {
 
     private static PublicIP: string;
 
-    public async Callback(request: Request, response: Response, next: NextFunction) {
+    public async invoke(request: Request, response: Response, next: NextFunction) {
         const gaCategory = `Proxy_${WebUtility.GenerateUUIDV4()}`;
 
         let baseGaString = '';
