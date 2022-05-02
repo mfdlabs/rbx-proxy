@@ -1,6 +1,5 @@
 name: Production Security Analysis Windows
 
-
 on:
   push:
     branches:
