@@ -41,6 +41,7 @@ import { RouteCallbackDelegate } from './customTypes/routeCallbackDelegate';
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import * as fs from 'fs';
+import * as net from 'net';
 import * as spdy from 'spdy';
 import * as path from 'path';
 import * as http from 'http';
@@ -172,26 +173,85 @@ abstract class WebHelper {
       /* Has No Certificate */
       let insecureServer: http.Server;
 
-      if (options.tls) {
-        this._logInfo?.call(this, 'Start a TLS server...');
+      this._tryBind(options.bind).then(([success, reason]) => {
+        if (!success) {
+          this._logError?.call(this, `Failed to start the web server! Reason: %s`, reason);
+          return;
+        }
 
-        const sslConfiguration = this._verifyCertificate(options);
+        if (options.tls) {
+          this._logInfo?.call(this, 'Start a TLS server...');
 
-        sslServer = (options.tlsV2 ? spdy : https)
-          .createServer(sslConfiguration, options.app)
-          .listen(options.tlsPort, options.bind, () =>
-            this._logInfo?.call(this, `SSL Server '%s' started on port %d.`, options.bind, options.tlsPort),
+          const sslConfiguration = this._verifyCertificate(options);
+
+          sslServer = (options.tlsV2 ? spdy : https)
+            .createServer(sslConfiguration, options.app)
+            .listen(options.tlsPort, options.bind, () =>
+              this._logInfo?.call(this, `SSL Server '%s' started on port %d.`, options.bind, options.tlsPort),
+            );
+        }
+        if (options.insecure)
+          insecureServer = options.app.listen(options.insecurePort, options.bind, () =>
+            this._logInfo?.call(this, `Insecure Server '%s' started on port %d.`, options.bind, options.insecurePort),
           );
-      }
-      if (options.insecure)
-        insecureServer = options.app.listen(options.insecurePort, options.bind, () =>
-          this._logInfo?.call(this, `Insecure Server '%s' started on port %d.`, options.bind, options.insecurePort),
-        );
-      return [insecureServer, sslServer];
+        return [insecureServer, sslServer];
+      });
     } catch (err) {
       this._logError?.call(this, `Error occurred when starting a server! Stack: %s`, err.stack);
       return [null, null];
     }
+  }
+
+  private static _tryBind(bind: string): Promise<[boolean, string]> {
+    return new Promise((resolve) => {
+      const socket = net.createServer();
+      socket.on('error', (err: any) => {
+        let reason = 'Unknown';
+
+        switch (err.code) {
+          case 'EACCES':
+            reason = 'Access denied';
+            break;
+          case 'EADDRINUSE':
+            reason = 'Address in use';
+            break;
+          case 'EADDRNOTAVAIL':
+            reason = 'Address not available';
+            break;
+          case 'EAFNOSUPPORT':
+            reason = 'Address family not supported';
+            break;
+          case 'EALREADY':
+            reason = 'Connection already in progress';
+            break;
+          case 'EBADF':
+            reason = 'Bad file descriptor';
+            break;
+          case 'ECONNREFUSED':
+            reason = 'Connection refused';
+            break;
+          case 'EFAULT':
+            reason = 'Bad address';
+            break;
+          case 'EHOSTUNREACH':
+            reason = 'Host unreachable';
+            break;
+          case 'EINPROGRESS':
+            reason = 'Operation now in progress';
+            break;
+          case 'EINVAL':
+            reason = 'Invalid argument';
+            break;
+        }
+
+        resolve([false, reason]);
+      });
+      
+      socket.listen(0, bind, () => {
+        socket.close();
+        resolve([true, '']);
+      });
+    });
   }
 
   // The entire point of this method is to see if the key and passphrase are compatible with the certificate.
