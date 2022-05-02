@@ -20,9 +20,11 @@
     Written by: Nikita Petko
 */
 
-import logger  from 'lib/utility/logger';
+import logger from 'lib/utility/logger';
 
-import net from '@mfdlabs/net';
+import * as tls from 'tls';
+import * as net from 'net';
+import netHelper from '@mfdlabs/net';
 import { NextFunction, Request, Response } from 'express';
 
 class LoggingMiddleware {
@@ -36,10 +38,11 @@ class LoggingMiddleware {
   public static invoke(request: Request, _response: Response, next: NextFunction): void {
     const localIp = LoggingMiddleware._getLocalIp(request);
     const forwardedPort = request.headers['x-forwarded-port'] as string;
-    const port = forwardedPort ? parseInt(forwardedPort, 10) : request.socket.localPort;
+    const port = forwardedPort ? parseInt(forwardedPort, 10) : LoggingMiddleware._getLocalPort(request);
+    const isVerifiedTlsSession = LoggingMiddleware._isVerifiedTlsSession(request);
 
     logger.log(
-      `%s request on URI %s://%s:%d%s ('%s') from client '%s' (%s)`,
+      `%s request on URI %s://%s:%d%s ('%s') from client '%s' (%s). TLS session: %s.`,
       request.method.toUpperCase(),
       request.protocol,
       localIp,
@@ -48,9 +51,44 @@ class LoggingMiddleware {
       request.headers.host || 'No Host Header',
       LoggingMiddleware._getTruncatedUserAgent(request.headers['user-agent']),
       request.ip,
+      request.protocol === 'https' ? (isVerifiedTlsSession ? 'verified' : 'unverified') : 'insecure',
     );
 
     next();
+  }
+
+  private static _getLocalPort(request: Request): number {
+    return LoggingMiddleware._getSocket(request).localPort;
+  }
+
+  private static _getSocket(request: Request): tls.TLSSocket | net.Socket {
+    // spdy does some weird stuff with the raw socket, as in it puts the actual TLSSocket in a nested property
+    if (!((request.socket as any) instanceof tls.TLSSocket)) {
+      // Check if the request is not actually an insecure request
+      // because spdy socket is an instance of net.Socket
+      if (request.protocol !== 'http') {
+        // HACK: this is a hack to get the raw socket from the spdy socket
+        // the _spdyState property is private, but has a property called parent that contains the actual socket
+        // the parent property is a tls.TLSSocket
+        const spdySocket = (request.socket as any)?._spdyState?.parent;
+        if (!(spdySocket instanceof tls.TLSSocket)) {
+          throw new Error('Could not get raw socket from spdy socket');
+        }
+
+        return spdySocket;
+      }
+    }
+
+    return request.socket;
+  }
+
+  private static _isVerifiedTlsSession(request: Request): boolean {
+    const socket = LoggingMiddleware._getSocket(request);
+
+    if (socket === undefined) return false;
+    if (!(socket instanceof tls.TLSSocket)) return false;
+
+    return socket.authorized;
   }
 
   private static _getTruncatedUserAgent(userAgent: string): string {
@@ -64,17 +102,17 @@ class LoggingMiddleware {
   }
 
   private static _getLocalIp(request: Request): string {
-    if (net.isIPv4(request.ip)) {
-      if (net.isIPv4Loopback(request.ip)) {
+    if (netHelper.isIPv4(request.ip)) {
+      if (netHelper.isIPv4Loopback(request.ip)) {
         return '127.0.0.1';
       } else {
-        return net.getLocalIPv4();
+        return netHelper.getLocalIPv4();
       }
     } else {
-      if (net.isIPv6Loopback(request.ip)) {
+      if (netHelper.isIPv6Loopback(request.ip)) {
         return '[::1]';
       } else {
-        return `[${net.getLocalIPv6()}]`;
+        return `[${netHelper.getLocalIPv6()}]`;
       }
     }
   }
