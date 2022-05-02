@@ -54,11 +54,11 @@ class LoadBalancerInfoResponder {
     if (process.env.MFDLABS_ARC_SERVER) {
       const serverResponse = `mfdlabs/arc-lb node ${
         process.version
-      } (http://lb-services.ops-dev.vmminfra.dev/ui/machine/${webUtility.getMachineID()}/summary) (${webUtility.getMachineID()}->${net.getLocalIPv4()}::${net.getLocalIPv6()})`;
+      } (http://lb-services.ops-dev.vmminfra.dev/ui/machine/${webUtility.getMachineID()}/summary) (${webUtility.getMachineID()}->${net.getLocalIPv4()}@${net.getLocalIPv6()})`;
 
       response.header({
         Server: serverResponse,
-        'X-LB-Service': `${webUtility.getMachineID()}->${net.getLocalIPv4()}::${net.getLocalIPv6()}`,
+        'X-LB-Service': `${webUtility.getMachineID()}->${net.getLocalIPv4()}@${net.getLocalIPv6()}`,
         'X-Powered-By': `mfdlabs/arc-lb node ${process.version}`,
       });
 
