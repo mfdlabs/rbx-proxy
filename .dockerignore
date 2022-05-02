@@ -7,3 +7,9 @@ src/lib/directories.ts
 !LICENSE
 !README.md
 !tsconfig.json
+!sphynx-rewrite.yml
+!sphynx-rewrite.yaml
+!sphynx-rewrite.json
+!sphynx-hardcode.yml
+!sphynx-hardcode.yaml
+!sphynx-hardcode.json
