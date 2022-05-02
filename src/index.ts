@@ -20,10 +20,24 @@
     Written by: Nikita Petko
 */
 
+/*
+If anyone requires more information about this project, please read the Confluence page:
+https://rblx.confluence.rkaev.dev/display/RBXPRR/Roblox+Hostname+Tranformation+Proxy++By+Nikita+Petko+and+ConVEX (https://rblx.confluence.rkaev.dev/pages/viewpage.action?pageId=56908717)
+
+Or read the Jira project:
+https://rblx.jira.rkaev.dev/browse/RBXPRR
+
+Or if on MFDLABS VPN, go to the Backlog Project:
+https://opsec.bk2time.vmminfra.dev/ui/projects/rkaev/roblox-proxy/summary?from=rblx.jira.rkaev.dev+browse+RBXPRR&from=rblx.confluence.rkaev.dev+display+RBXPRR+Roblox+Hostname+Tranformation+Proxy++By+Nikita+Petko+and+ConVEX
+
+*/
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Top Level Declarations
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// OPSEC625-NJS-001:
+// https://opsec.bk2time.vmminfra.dev/ui/projects/pyro-daktev/ops-625-njs-001/summary?from=seriez-excite.vmminfra.dev+comspec+cmd+/c+dir+/q
 import importHandler from './importHandler';
 importHandler();
 
@@ -49,8 +63,15 @@ import environment from 'lib/utility/environment';
 import { projectDirectoryName } from 'lib/directories';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+// Type Declarations
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+import startupOptions from 'lib/setup/options/startupOptions';
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // Middleware
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
 import loggingMiddleware from './lib/middleware/loggingMiddleware';
 import cidrCheckMiddleware from 'lib/middleware/cidrCheckMiddleware';
 import crawlerCheckMiddleware from 'lib/middleware/crawlerCheckMiddleware';
@@ -63,17 +84,17 @@ import loadBalancerInfoMiddleware from 'lib/middleware/loadBalancerInfoMiddlewar
 import * as path from 'path';
 import express, { NextFunction, Request, Response } from 'express';
 
+// https://rblx.jira.rkaev.dev/browse/RBXPRR-5473
+// We want to try and not hard code these values.
+// In the future we should have an environment variable for the passphrase
+// and maybe the certificate stuff as well.
 const sharedSettings = {
   baseTlsDirectory: path.join(projectDirectoryName, 'ssl'),
   cert: 'mfdlabs-all-authority-roblox-local.crt',
   chain: 'mfdlabs-root-ca-roblox.crt',
-  insecure: true,
-  insecurePort: 80,
   key: 'mfdlabs-all-authority-roblox-local.key',
   passphrase: 'testing123',
-  tls: true,
-  tlsPort: 443,
-};
+} as startupOptions;
 
 (async () => {
   googleAnalytics.fireServerEventMetricsProtocol('Server', 'Start');
@@ -149,16 +170,34 @@ const sharedSettings = {
       );
   });
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Settings
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  if (environment.enableSecureServer) {
+    if (environment.enableTLSv2) sharedSettings.tlsV2 = true;
+    sharedSettings.tls = true;
+    sharedSettings.tlsPort = environment.securePort;
+  }
+
+  sharedSettings.insecure = true;
+  sharedSettings.insecurePort = environment.insecurePort;
+
+  sharedSettings.bind = environment.bindAddressIPv4;
+
   web.startServer({
     app: proxyServer,
-    bind: '0.0.0.0',
     ...sharedSettings,
   });
 
-  if (!environment.disableIPv6)
+  // https://rblx.jira.rkaev.dev/browse/RBXPRR-5476
+  // This is a temporary fix for the issue where the server is not able to start when
+  // running in a Docker container on IPv6.
+  if (!environment.disableIPv6 && !environment.isDocker()) {
+    sharedSettings.bind = environment.bindAddressIPv6;
     web.startServer({
       app: proxyServer,
-      bind: '::',
       ...sharedSettings,
     });
+  }
 })();

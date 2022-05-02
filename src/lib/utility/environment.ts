@@ -23,12 +23,16 @@
 import dotenvLoader from './dotenvLoader';
 import typeConverters from './typeConverter';
 
+import * as fs from 'fs';
+
 /**
  * A class for loading environment variables from .env files programmatically.
  */
 abstract class Environment {
+  private static _isDockerCached?: boolean = undefined;
+
   // Trys to get then deserialize the value of the environment variable.
-  private static getSettingOrDefault<T>(setting: string, defaultValue: T, reloadEnvironment: boolean = true): T {
+  private static _getSettingOrDefault<T>(setting: string, defaultValue: T, reloadEnvironment: boolean = true): T {
     if (reloadEnvironment) {
       dotenvLoader.reloadEnvironment();
     }
@@ -37,7 +41,7 @@ abstract class Environment {
       case 'boolean':
         return typeConverters.toBoolean(process.env[setting], defaultValue) as unknown as T;
       case 'number':
-        return parseInt(process.env[setting] ?? '', 10) as unknown as T;
+        return parseInt(process.env[setting] ?? defaultValue?.toString(), 10) as unknown as T;
       default:
         if (Array.isArray(defaultValue)) {
           return (process.env[setting]?.split(',') as unknown as T) ?? defaultValue;
@@ -48,12 +52,51 @@ abstract class Environment {
   }
 
   /**
+   * Determines if the current context has the .dockerenv file.
+   * @returns {boolean} True if the current context has the .dockerenv file.
+   */
+  public static hasDockerEnv(): boolean {
+    try {
+      fs.statSync('/.dockerenv');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Determines if the current context has `docker` within it's CGroup.
+   * @returns {boolean} True if the current context has `docker` within it's CGroup.
+   */
+  public static hasDockerCGroup(): boolean {
+    if (process.platform !== 'linux') return false;
+
+    try {
+      return fs.readFileSync('/proc/self/cgroup', 'utf8').includes('docker');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Determines if the current context is running under a docker container.
+   * @returns {boolean} True if the current context is running under a docker container.
+   */
+  public static isDocker(): boolean {
+    if (this._isDockerCached === undefined) {
+      this._isDockerCached = this.hasDockerEnv() || this.hasDockerCGroup();
+    }
+
+    return this._isDockerCached;
+  }
+
+  /**
    * This is only ingested by the Logger class.
    *
    * If you set this environment variable, the logger will persist it's log files even if a clearance is requested.
    */
   public static get persistLocalLogs(): boolean {
-    return this.getSettingOrDefault('PERSIST_LOCAL_LOGS', false);
+    return this._getSettingOrDefault('PERSIST_LOCAL_LOGS', false);
   }
 
   /**
@@ -62,7 +105,7 @@ abstract class Environment {
    * This will determine if the proxy should be allowed to proxy requests that resolve the LAN IPs on the local network.
    */
   public static get hateLocalAreaNetworkAccess(): boolean {
-    return this.getSettingOrDefault('HATE_LAN_ACCESS', false);
+    return this._getSettingOrDefault('HATE_LAN_ACCESS', false);
   }
 
   /**
@@ -71,7 +114,7 @@ abstract class Environment {
    * If false then the crawler check handler will not be called.
    */
   public static get shouldCheckCrawler(): boolean {
-    return this.getSettingOrDefault('SHOULD_CHECK_CRAWLER', false);
+    return this._getSettingOrDefault('SHOULD_CHECK_CRAWLER', false);
   }
 
   /**
@@ -80,7 +123,7 @@ abstract class Environment {
    * If false then the cidr check handler will not be called.
    */
   public static get shouldCheckIP(): boolean {
-    return this.getSettingOrDefault('SHOULD_CHECK_IP', false);
+    return this._getSettingOrDefault('SHOULD_CHECK_IP', false);
   }
 
   /**
@@ -89,7 +132,7 @@ abstract class Environment {
    * A list of IPv4 addresses that are allowed to access the proxy.
    */
   public static get allowedIPv4Cidrs(): string[] {
-    return this.getSettingOrDefault('ALLOWED_IPV4_CIDRS', []);
+    return this._getSettingOrDefault('ALLOWED_IPV4_CIDRS', []);
   }
 
   /**
@@ -98,7 +141,7 @@ abstract class Environment {
    * A list of IPv6 addresses that are allowed to access the proxy.
    */
   public static get allowedIPv6Cidrs(): string[] {
-    return this.getSettingOrDefault('ALLOWED_IPV6_CIDRS', []);
+    return this._getSettingOrDefault('ALLOWED_IPV6_CIDRS', []);
   }
 
   /**
@@ -107,7 +150,7 @@ abstract class Environment {
    * If true then the request will be aborted if a crawler is detected.
    */
   public static get abortConnectionIfCrawler(): boolean {
-    return this.getSettingOrDefault('ABORT_CONNECTION_IF_CRAWLER', false);
+    return this._getSettingOrDefault('ABORT_CONNECTION_IF_CRAWLER', false);
   }
 
   /**
@@ -116,7 +159,7 @@ abstract class Environment {
    * If true then the request will be aborted if the client's IP is not allowed.
    */
   public static get abortConnectionIfInvalidIP(): boolean {
-    return this.getSettingOrDefault('ABORT_CONNECTION_IF_INVALID_IP', false);
+    return this._getSettingOrDefault('ABORT_CONNECTION_IF_INVALID_IP', false);
   }
 
   /**
@@ -125,7 +168,7 @@ abstract class Environment {
    * The GA4 client's Measurement ID.
    */
   public static get ga4MeasurementID(): string {
-    return this.getSettingOrDefault('GA4_MEASUREMENT_ID', null);
+    return this._getSettingOrDefault('GA4_MEASUREMENT_ID', null);
   }
 
   /**
@@ -134,7 +177,7 @@ abstract class Environment {
    * The GA4 client's API Secret.
    */
   public static get ga4APISecret(): string {
-    return this.getSettingOrDefault('GA4_API_SECRET', null);
+    return this._getSettingOrDefault('GA4_API_SECRET', null);
   }
 
   /**
@@ -143,7 +186,7 @@ abstract class Environment {
    * If true, then the GA4 client will enable logging.
    */
   public static get ga4EnableLogging(): boolean {
-    return this.getSettingOrDefault('GA4_ENABLE_LOGGING', false);
+    return this._getSettingOrDefault('GA4_ENABLE_LOGGING', false);
   }
 
   /**
@@ -152,7 +195,7 @@ abstract class Environment {
    * If true, then the GA4 client will enable server-side validation.
    */
   public static get ga4EnableValidation(): boolean {
-    return this.getSettingOrDefault('GA4_ENABLE_VALIDATION', false);
+    return this._getSettingOrDefault('GA4_ENABLE_VALIDATION', false);
   }
 
   /**
@@ -161,7 +204,7 @@ abstract class Environment {
    * If true, then the GA4 client will be enabled.
    */
   public static get enableGA4Client(): boolean {
-    return this.getSettingOrDefault('ENABLE_GA4_CLIENT', false);
+    return this._getSettingOrDefault('ENABLE_GA4_CLIENT', false);
   }
 
   /**
@@ -170,7 +213,7 @@ abstract class Environment {
    * If true, then the GA4 client will disable logging ips within the proxy route.
    */
   public static get ga4DisableLoggingIPs(): boolean {
-    return this.getSettingOrDefault('GA4_DISABLE_LOGGING_IPS', false);
+    return this._getSettingOrDefault('GA4_DISABLE_LOGGING_IPS', false);
   }
 
   /**
@@ -179,25 +222,79 @@ abstract class Environment {
    * If true, then the GA4 client will disable logging the body of the request.
    */
   public static get ga4DisableLoggingBody(): boolean {
-    return this.getSettingOrDefault('GA4_DISABLE_LOGGING_BODY', false);
+    return this._getSettingOrDefault('GA4_DISABLE_LOGGING_BODY', false);
   }
 
   /**
    * Used by the entry point.
-   * 
+   *
    * If true, we will log startup information.
    */
   public static get logStartupInfo(): boolean {
-    return this.getSettingOrDefault('LOG_STARTUP_INFO', false);
+    return this._getSettingOrDefault('LOG_STARTUP_INFO', false);
+  }
+
+  /**
+   * Used by the entry point.
+   *
+   * If true, we will disable IPv6 support.
+   */
+  public static get disableIPv6(): boolean {
+    return this._getSettingOrDefault('DISABLE_IPV6', false);
+  }
+
+  /**
+   * Used by the entry point.
+   *
+   * This value will determine the bind port for insecure servers.
+   */
+  public static get insecurePort(): number {
+    return this._getSettingOrDefault('INSECURE_PORT', 80);
+  }
+
+  /**
+   * Used by the entry point.
+   *
+   * This value will determine the bind port for secure servers.
+   */
+  public static get securePort(): number {
+    return this._getSettingOrDefault('SECURE_PORT', 443);
   }
 
   /**
    * Used by the entry point.
    * 
-   * If true, we will disable IPv6 support.
+   * If true, we will enable the TLS server.
    */
-  public static get disableIPv6(): boolean {
-    return this.getSettingOrDefault('DISABLE_IPV6', false);
+  public static get enableSecureServer(): boolean {
+    return this._getSettingOrDefault('ENABLE_TLS_SERVER', true);
+  }
+
+  /**
+   * Used by the entry point.
+   * 
+   * This value will determine the bind address for IPv4 servers.
+   */
+  public static get bindAddressIPv4(): string {
+    return this._getSettingOrDefault('BIND_ADDRESS_IPV4', '0.0.0.0');
+  }
+
+  /**
+   * Used by the entry point.
+   * 
+   * This value will determine the bind address for IPv6 servers.
+   */
+  public static get bindAddressIPv6(): string {
+    return this._getSettingOrDefault('BIND_ADDRESS_IPV6', '::');
+  }
+
+  /**
+   * Used by the entry point.
+   * 
+   * If true, we will enable the TLS V2
+   */
+  public static get enableTLSv2(): boolean {
+    return this._getSettingOrDefault('ENABLE_TLSV2', false);
   }
 }
 
