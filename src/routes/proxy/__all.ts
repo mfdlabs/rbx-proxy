@@ -234,7 +234,8 @@ class AllCatchRoute implements Route {
       const hardcodedResponse = sphynxServiceRewriteReader.getHardcodedResponse(request.method, request.url);
 
       if (hardcodedResponse) {
-        logger.information('Found hardcoded response for sphynx request');
+        logger.information('Found hardcoded response for sphynx request, responding with it');
+        googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'HardcodedResponse', baseGaString);
 
         response
           .header(hardcodedResponse.headers)
@@ -244,6 +245,9 @@ class AllCatchRoute implements Route {
 
         return;
       }
+
+      logger.information('No hardcoded response found for sphynx request, try and transform service path');
+      googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'NoHardcodedResponse', baseGaString);
 
       request.url = sphynxServiceRewriteReader.transformUrl(request.url);
     }
