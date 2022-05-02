@@ -333,6 +333,15 @@ abstract class Environment {
   public static get sphynxRewriteBaseDirectory(): string {
     return this._getSettingOrDefault('SPHYNX_REWRITE_BASE_DIRECTORY', projectDirectoryName);
   }
+
+  /**
+   * Used by the sphynx rewrite reader.
+   * 
+   * If true, it will reload the sphynx rewrite file on each request.
+   */
+  public static get sphynxRewriteReloadOnRequest(): boolean {
+    return this._getSettingOrDefault('SPHYNX_REWRITE_RELOAD_ON_REQUEST', false);
+  }
 }
 
 export = Environment;

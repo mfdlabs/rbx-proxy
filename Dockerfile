@@ -24,6 +24,7 @@ ENV SPHYNX_REWRITE_FILE_NAME=sphynx-rewrite.yml
 ENV SPHYNX_HARDCODE_FILE_NAME=sphynx-hardcode.yml
 ENV SPHYNX_DOMAIN=apis.roblox.com
 ENV SPHYNX_REWRITE_BASE_DIRECTORY=
+ENV SPHYNX_REWRITE_RELOAD_ON_REQUEST=false
 
 # make the 'app' folder the current working directory
 WORKDIR /app

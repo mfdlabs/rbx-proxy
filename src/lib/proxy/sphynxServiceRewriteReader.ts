@@ -46,7 +46,7 @@ abstract class SphynxServiceRewriteReader {
    * @returns {void} Nothing.
    */
   public static initialize(): void {
-    if (this._initialized) return;
+    if (this._initialized && !environment.sphynxRewriteReloadOnRequest) return;
 
     this._initialized = true;
 
@@ -167,7 +167,7 @@ abstract class SphynxServiceRewriteReader {
    * @returns {string} The transformed url.
    */
   public static transformUrl(url: string): string {
-    if (!this._initialized) this.initialize();
+    this.initialize();
 
     // Normally sphynx service urls are in the form of:
     // https://apis.{environment}/{service}/{ocelotReroute}
@@ -196,7 +196,7 @@ abstract class SphynxServiceRewriteReader {
    * @returns {SphynxHardcodeRewrite} The hardcoded response.
    */
   public static getHardcodedResponse(method: string, url: string): SphynxHardcodeRewrite {
-    if (!this._initialized) this.initialize();
+    this.initialize();
 
     // Remove query string from the url, and remove trailing slash.
     const urlWithoutQueryString = url.replace(/\?.*/, '').replace(/\/$/, '');
