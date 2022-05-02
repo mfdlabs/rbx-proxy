@@ -20,7 +20,7 @@
     Written by: Nikita Petko
 */
 
-import logger  from 'lib/utility/logger';
+import logger from 'lib/utility/logger';
 import webUtility from 'lib/utility/webUtility';
 import environment from 'lib/utility/environment';
 import googleAnalytics from 'lib/utility/googleAnalytics';
@@ -37,9 +37,12 @@ import { RoutingMethod } from 'lib/setup/customTypes/routingMethod';
 // Third-party imports.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import net from '@mfdlabs/net';
+import * as tls from 'tls';
+import * as net from 'net';
+import netHelper from '@mfdlabs/net';
 import axios, { Method } from 'axios';
 import { Request, Response, NextFunction } from 'express';
+import sphynxServiceRewriteReader from 'lib/proxy/sphynxServiceRewriteReader';
 
 /*
     There are 5 forms of loopback we can do here.
@@ -51,6 +54,31 @@ import { Request, Response, NextFunction } from 'express';
 */
 class AllCatchRoute implements Route {
   public requestMethod = 'ALL' as RoutingMethod;
+
+  private static _getLocalPort(request: Request): number {
+    return AllCatchRoute._getSocket(request).localPort;
+  }
+
+  private static _getSocket(request: Request): tls.TLSSocket | net.Socket {
+    // spdy does some weird stuff with the raw socket, as in it puts the actual TLSSocket in a nested property
+    if (!((request.socket as any) instanceof tls.TLSSocket)) {
+      // Check if the request is not actually an insecure request
+      // because spdy socket is an instance of net.Socket
+      if (request.protocol !== 'http') {
+        // HACK: this is a hack to get the raw socket from the spdy socket
+        // the _spdyState property is private, but has a property called parent that contains the actual socket
+        // the parent property is a tls.TLSSocket
+        const spdySocket = (request.socket as any)?._spdyState?.parent;
+        if (!(spdySocket instanceof tls.TLSSocket)) {
+          throw new Error('Could not get raw socket from spdy socket');
+        }
+
+        return spdySocket;
+      }
+    }
+
+    return request.socket;
+  }
 
   private static _transformRequestHost(host: string): string {
     if (host === undefined || host === null) return null;
@@ -128,7 +156,7 @@ class AllCatchRoute implements Route {
     googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'Request', baseGaString);
 
     if (AllCatchRoute._publicIp === undefined) {
-      AllCatchRoute._publicIp = await net.getPublicIP();
+      AllCatchRoute._publicIp = await netHelper.getPublicIP();
 
       logger.information("Public IP Initialized as '%s'", AllCatchRoute._publicIp);
 
@@ -140,9 +168,7 @@ class AllCatchRoute implements Route {
     const startTime = Date.now();
 
     const origin = request.headers.origin ?? request.headers.referer;
-    const transformedOrigin = `${request.secure ? 'https' : 'http'}://${AllCatchRoute._transformRequestHost(
-      origin,
-    )}`;
+    const transformedOrigin = `${request.secure ? 'https' : 'http'}://${AllCatchRoute._transformRequestHost(origin)}`;
 
     if (origin) {
       logger.information('Origin is present, setting CORS headers');
@@ -200,9 +226,31 @@ class AllCatchRoute implements Route {
 
     const host = AllCatchRoute._transformRequestHost(hostname);
 
+    if (host === environment.sphynxDomain) {
+      logger.information('Request is for sphynx');
+      googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'SphynxRequest', baseGaString);
+
+      // Check if there is a hardcoded redirect for the sphynx domain
+      const hardcodedResponse = sphynxServiceRewriteReader.getHardcodedResponse(request.method, request.url);
+
+      if (hardcodedResponse) {
+        logger.information('Found hardcoded response for sphynx request');
+
+        response
+          .header(hardcodedResponse.headers)
+          .contentType(hardcodedResponse.contentType ?? 'text/html')
+          .status(hardcodedResponse.statusCode)
+          .send(hardcodedResponse.body);
+
+        return;
+      }
+
+      request.url = sphynxServiceRewriteReader.transformUrl(request.url);
+    }
+
     // We have to be careful here to not allow loopback requests or requests to the proxy itself as they will cause an infinite loop
 
-    const resolvedHost = await net.resolveHostname(host);
+    const resolvedHost = await netHelper.resolveHostname(host);
 
     if (resolvedHost === undefined || resolvedHost === null) {
       logger.warning("Resolved host for '%s' is undefined or null, responding with invalid hostname error", host);
@@ -226,12 +274,12 @@ class AllCatchRoute implements Route {
 
     if (
       environment.hateLocalAreaNetworkAccess &&
-      (net.isIPv4RFC1918(resolvedHost) ||
-        net.isIPv6RFC4193(resolvedHost) ||
-        net.isIPv6RFC3879(resolvedHost) ||
-        net.isIPv4RFC1918(host) ||
-        net.isIPv6RFC4193(host) ||
-        net.isIPv6RFC3879(host))
+      (netHelper.isIPv4RFC1918(resolvedHost) ||
+        netHelper.isIPv6RFC4193(resolvedHost) ||
+        netHelper.isIPv6RFC3879(resolvedHost) ||
+        netHelper.isIPv4RFC1918(host) ||
+        netHelper.isIPv6RFC4193(host) ||
+        netHelper.isIPv6RFC3879(host))
     ) {
       logger.warning("Request to '%s' or '%s' is from a LAN, responding with LAN access error", host, resolvedHost);
       googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'LANAccess', baseGaString);
@@ -252,14 +300,14 @@ class AllCatchRoute implements Route {
     }
 
     if (
-      net.isIPv4Loopback(host) ||
-      net.isIPv6Loopback(host) ||
-      net.isIPv4Loopback(resolvedHost) ||
-      net.isIPv6Loopback(resolvedHost) ||
-      resolvedHost === net.getLocalIPv4() ||
-      host === net.getLocalIPv4() ||
-      resolvedHost === net.getLocalIPv6() ||
-      host === net.getLocalIPv6() ||
+      netHelper.isIPv4Loopback(host) ||
+      netHelper.isIPv6Loopback(host) ||
+      netHelper.isIPv4Loopback(resolvedHost) ||
+      netHelper.isIPv6Loopback(resolvedHost) ||
+      resolvedHost === netHelper.getLocalIPv4() ||
+      host === netHelper.getLocalIPv4() ||
+      resolvedHost === netHelper.getLocalIPv6() ||
+      host === netHelper.getLocalIPv6() ||
       host === AllCatchRoute._publicIp ||
       resolvedHost === AllCatchRoute._publicIp
     ) {
@@ -285,7 +333,7 @@ class AllCatchRoute implements Route {
 
     const forwardedPort = request.headers['x-forwarded-port'] as string;
 
-    const port = forwardedPort ? parseInt(forwardedPort, 10) : request.socket.localPort;
+    const port = forwardedPort ? parseInt(forwardedPort, 10) : AllCatchRoute._getLocalPort(request);
 
     const uri = `${request.secure ? 'https' : 'http'}://${host}:${port}${url}`;
 
@@ -377,7 +425,12 @@ class AllCatchRoute implements Route {
 
         // Check if error is a timeout
         if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
-          logger.warning("Proxy timed out from upstream '%s' on downstream host '%s' after %dms.", uri, hostname, timing);
+          logger.warning(
+            "Proxy timed out from upstream '%s' on downstream host '%s' after %dms.",
+            uri,
+            hostname,
+            timing,
+          );
           googleAnalytics.fireServerEventMetricsProtocol(
             gaCategory,
             'ProxyTimeout',

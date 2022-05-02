@@ -1,0 +1,15 @@
+# Hardcoding responses for Sphynx APIs
+# Check your SPHYNX_DOMAIN environment variable
+# for the tranformation domain to call these rewrites.
+
+- template: /test/v1/uri/hello # Template can be a regex
+  method: GET # If not specified, defaults to ALL which means this will respond for any method
+  statusCode: 200 # If not specified, defaults to 200
+  body: { "hello": "world" } # If not specified, defaults to empty string
+  contentType: application/json # If not specified, defaults to text/html
+  headers: # An K/V Map of headers to respond with.
+    # If not specified, defaults to empty map
+    # Example:
+    X-Api-Key: "12345"
+    X-Another-Header: "67890"
+    Test-Header: "Test-Value"

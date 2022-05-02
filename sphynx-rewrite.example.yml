@@ -1,0 +1,6 @@
+# A file that rewrites the service names for Sphynx.
+# Check your SPHYNX_DOMAIN environment variable
+# for the tranformation domain to call these rewrites.
+
+test-service: other-service # Any urls that contain the service name "test-service" will be rewritten to "other-service"
+                            # Example: http://apis.sitetest3.robloxlabs.com/test-service/v1/uri/hello -> http://apis.sitetest3.robloxlabs.com/other-service/v1/uri/hello

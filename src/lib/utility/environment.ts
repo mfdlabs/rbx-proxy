@@ -22,6 +22,7 @@
 
 import dotenvLoader from './dotenvLoader';
 import typeConverters from './typeConverter';
+import { projectDirectoryName } from 'lib/directories';
 
 import * as fs from 'fs';
 
@@ -295,6 +296,42 @@ abstract class Environment {
    */
   public static get enableTLSv2(): boolean {
     return this._getSettingOrDefault('ENABLE_TLSV2', false);
+  }
+
+  /**
+   * Used by the sphynx rewrite reader.
+   * 
+   * Represents the fileName of the sphynx rewrite file.
+   */
+  public static get sphynxRewriteFileName(): string {
+    return this._getSettingOrDefault('SPHYNX_REWRITE_FILE_NAME', 'sphynx-rewrite.yml');
+  }
+
+  /**
+   * Used by the proxy all route catcher.
+   * 
+   * Represents the default domain for Sphynx
+   */
+  public static get sphynxDomain(): string {
+    return this._getSettingOrDefault('SPHYNX_DOMAIN', 'apis.roblox.com');
+  }
+
+  /**
+   * Used by the sphynx rewrite reader.
+   * 
+   * Represents the fileName of the sphynx hardcode url file.
+   */
+  public static get sphynxHardcodeFileName(): string {
+    return this._getSettingOrDefault('SPHYNX_HARDCODE_FILE_NAME', 'sphynx-hardcode.yml');
+  }
+
+  /**
+   * Used by the sphynx rewrite reader.
+   * 
+   * Represents the base directory for the sphynx rewrite files.
+   */
+  public static get sphynxRewriteBaseDirectory(): string {
+    return this._getSettingOrDefault('SPHYNX_REWRITE_BASE_DIRECTORY', projectDirectoryName);
   }
 }
 

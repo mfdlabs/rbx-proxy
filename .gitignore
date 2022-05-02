@@ -2,3 +2,9 @@ dist
 node_modules
 .env
 src/lib/directories.ts
+sphynx-rewrite.yml
+sphynx-rewrite.yaml
+sphynx-rewrite.json
+sphynx-hardcode.yml
+sphynx-hardcode.yaml
+sphynx-hardcode.json

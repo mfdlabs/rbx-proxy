@@ -20,6 +20,10 @@ ENV ENABLE_TLS_SERVER=true
 ENV BIND_ADDRESS_IPV4=0.0.0.0
 ENV BIND_ADDRESS_IPV6=::
 ENV ENABLE_TLSV2=false
+ENV SPHYNX_REWRITE_FILE_NAME=sphynx-rewrite.yml
+ENV SPHYNX_HARDCODE_FILE_NAME=sphynx-hardcode.yml
+ENV SPHYNX_DOMAIN=apis.roblox.com
+ENV SPHYNX_REWRITE_BASE_DIRECTORY=
 
 # make the 'app' folder the current working directory
 WORKDIR /app
