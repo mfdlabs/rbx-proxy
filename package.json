@@ -14,7 +14,9 @@
     "compile": "tsc -b -v --listEmittedFiles tsconfig.json",
     "lint": "tslint -p tsconfig.json -c tslint.json --fix",
     "lint-ci": "tslint -p tsconfig.json -c tslint.json",
-    "format": "prettier --write \"src/**/*.ts\" \"src/**/*.js\""
+    "format": "prettier --write \"src/**/*.ts\" \"src/**/*.js\"",
+	"up": "docker-compose up",
+	"down": "docker-compose down"
   },
   "author": "MFDLABS",
   "license": "Apache-2.0",
