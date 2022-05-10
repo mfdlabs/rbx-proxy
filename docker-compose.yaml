@@ -1,7 +1,7 @@
-version: "3.9"
+version: '3'
 services:
   lb:
     build: .
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
