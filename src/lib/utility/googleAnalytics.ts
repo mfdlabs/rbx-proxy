@@ -54,7 +54,7 @@ abstract class GoogleAnalytics {
     }
   }
 
-  public static async fireServerEventMetricsProtocol(category: string, action: string, label?: string): Promise<void> {
+  public static async fireServerEventGA4(category: string, action: string, label?: string): Promise<void> {
     if (!environment.enableGA4Client) return;
     if (!this._isInitialized) return;
 

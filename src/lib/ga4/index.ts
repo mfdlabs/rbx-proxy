@@ -34,10 +34,9 @@ import ga4ValidationMessage from './models/ga4ValidationMessage';
 import axios from 'axios';
 
 /**
- * @internal
+ * This represents the new client for Google Analytics v4.00.
  */
-// This represents the new client for Google Analytics v4.00.
-abstract class GoogleAnalyticsMetricsProtocol {
+abstract class GA4 {
   // Determines if the GA client is initialized.
   private static _initialized: boolean = false;
 
@@ -112,8 +111,6 @@ abstract class GoogleAnalyticsMetricsProtocol {
   }
 
   private static validateEvent(event: ga4EventRequest) {
-    if (this._serverSideValidation) return true;
-
     const eventNames = event.events.filter((e) => reservedEventNames.includes(e.name as ReservedEventName));
 
     if (eventNames.length > 0) {
@@ -344,4 +341,4 @@ abstract class GoogleAnalyticsMetricsProtocol {
   }
 }
 
-export = GoogleAnalyticsMetricsProtocol;
+export = GA4;
