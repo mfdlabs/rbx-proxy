@@ -25,6 +25,7 @@ import typeConverters from './typeConverter';
 import { projectDirectoryName } from 'lib/directories';
 
 import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * A class for loading environment variables from .env files programmatically.
@@ -33,7 +34,11 @@ abstract class Environment {
   private static _isDockerCached?: boolean = undefined;
 
   // Trys to get then deserialize the value of the environment variable.
-  private static _getSettingOrDefault<T>(setting: string, defaultValue: T, reloadEnvironment: boolean = true): T {
+  private static _getSettingOrDefault<T extends any = any>(
+    setting: string,
+    defaultValue: T,
+    reloadEnvironment: boolean = true,
+  ): T {
     if (reloadEnvironment) {
       dotenvLoader.reloadEnvironment();
     }
@@ -43,6 +48,8 @@ abstract class Environment {
         return typeConverters.toBoolean(process.env[setting], defaultValue) as unknown as T;
       case 'number':
         return parseInt(process.env[setting] ?? defaultValue?.toString(), 10) as unknown as T;
+      case 'function':
+        return (process.env[setting] as unknown as T) || defaultValue?.call(null);
       default:
         if (Array.isArray(defaultValue)) {
           return (process.env[setting]?.split(',') as unknown as T) ?? defaultValue;
@@ -264,7 +271,7 @@ abstract class Environment {
 
   /**
    * Used by the entry point.
-   * 
+   *
    * If true, we will enable the TLS server.
    */
   public static get enableSecureServer(): boolean {
@@ -273,7 +280,7 @@ abstract class Environment {
 
   /**
    * Used by the entry point.
-   * 
+   *
    * This value will determine the bind address for IPv4 servers.
    */
   public static get bindAddressIPv4(): string {
@@ -282,7 +289,7 @@ abstract class Environment {
 
   /**
    * Used by the entry point.
-   * 
+   *
    * This value will determine the bind address for IPv6 servers.
    */
   public static get bindAddressIPv6(): string {
@@ -291,7 +298,7 @@ abstract class Environment {
 
   /**
    * Used by the entry point.
-   * 
+   *
    * If true, we will enable the TLS V2
    */
   public static get enableTLSv2(): boolean {
@@ -300,7 +307,7 @@ abstract class Environment {
 
   /**
    * Used by the sphynx rewrite reader.
-   * 
+   *
    * Represents the fileName of the sphynx rewrite file.
    */
   public static get sphynxRewriteFileName(): string {
@@ -309,7 +316,7 @@ abstract class Environment {
 
   /**
    * Used by the proxy all route catcher.
-   * 
+   *
    * Represents the default domain for Sphynx
    */
   public static get sphynxDomain(): string {
@@ -318,7 +325,7 @@ abstract class Environment {
 
   /**
    * Used by the sphynx rewrite reader.
-   * 
+   *
    * Represents the fileName of the sphynx hardcode url file.
    */
   public static get sphynxHardcodeFileName(): string {
@@ -327,7 +334,7 @@ abstract class Environment {
 
   /**
    * Used by the sphynx rewrite reader.
-   * 
+   *
    * Represents the base directory for the sphynx rewrite files.
    */
   public static get sphynxRewriteBaseDirectory(): string {
@@ -336,11 +343,83 @@ abstract class Environment {
 
   /**
    * Used by the sphynx rewrite reader.
-   * 
+   *
    * If true, it will reload the sphynx rewrite file on each request.
    */
   public static get sphynxRewriteReloadOnRequest(): boolean {
     return this._getSettingOrDefault('SPHYNX_REWRITE_RELOAD_ON_REQUEST', false);
+  }
+
+  /**
+   * Used by the entry point.
+   *
+   * This value will determine the root directory for ssl certificates.
+   * If not present, then the default will be `{projectDirectory}/ssl`.
+   */
+  public static get sslBaseDirectory(): string {
+    return this._getSettingOrDefault('SSL_BASE_DIRECTORY', path.join(projectDirectoryName, 'ssl'));
+  }
+
+  /**
+   * Used by the entry point.
+   *
+   * Determines the file name for the ssl certificate.
+   * If this is not present it will throw an error.
+   * @throws {Error} The environment variable SSL_CERTIFICATE_FILE_NAME is not set.
+   */
+  public static get sslCertificateFileName(): string {
+    return this._getSettingOrDefault<any>('SSL_CERTIFICATE_FILE_NAME', () => {
+      throw new Error('SSL_CERTIFICATE_FILE_NAME is not set.');
+    });
+  }
+
+  /**
+   * Used by the entry point.
+   *
+   * Determines the file name for the ssl key.
+   * If this is not present it will throw an error.
+   * @throws {Error} The environment variable SSL_KEY_FILE_NAME is not set.
+   */
+  public static get sslKeyFileName(): string {
+    return this._getSettingOrDefault<any>('SSL_KEY_FILE_NAME', () => {
+      throw new Error('SSL_KEY_FILE_NAME is not set.');
+    });
+  }
+
+  /**
+   * Used by the entry point.
+   *
+   * Optional certificate chain file name.
+   */
+  public static get sslCertificateChainFileName(): string {
+    return this._getSettingOrDefault('SSL_CERTIFICATE_CHAIN_FILE_NAME', null);
+  }
+
+  /**
+   * Used by the entry point.
+   *
+   * Optional passphrase for the ssl key.
+   */
+  public static get sslKeyPassphrase(): string {
+    return this._getSettingOrDefault('SSL_KEY_PASSPHRASE', null);
+  }
+
+  /**
+   * Used by the standard in handler.
+   *
+   * If true, the app will exit on uncaught exceptions.
+   */
+  public static get exitOnUncaughtException(): boolean {
+    return this._getSettingOrDefault('EXIT_ON_UNCAUGHT_EXCEPTION', true);
+  }
+
+  /**
+   * Used by the standard in handler.
+   *
+   * If true, the app will exit on uncaught rejections.
+   */
+  public static get exitOnUnhandledRejection(): boolean {
+    return this._getSettingOrDefault('EXIT_ON_UNHANDLED_REJECTION', true);
   }
 }
 
