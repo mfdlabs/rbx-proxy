@@ -25,7 +25,7 @@ If anyone requires more information about this project, please read the Confluen
 https://rblx.confluence.rkaev.dev/display/RBXPRR/Roblox+Hostname+Tranformation+Proxy++By+Nikita+Petko+and+ConVEX (https://rblx.confluence.rkaev.dev/pages/viewpage.action?pageId=56908717)
 
 Or read the Jira project:
-https://rblx.jira.rkaev.dev/browse/RBXPRR
+https://mfdlabs.atlassian.net/browse/RBXPRR
 
 Or if on MFDLABS VPN, go to the Backlog Project:
 https://opsec.bk2time.vmminfra.dev/ui/projects/rkaev/roblox-proxy/summary?from=rblx.jira.rkaev.dev+browse+RBXPRR&from=rblx.confluence.rkaev.dev+display+RBXPRR+Roblox+Hostname+Tranformation+Proxy++By+Nikita+Petko+and+ConVEX
@@ -81,23 +81,18 @@ import loadBalancerInfoMiddleware from 'lib/middleware/loadBalancerInfoMiddlewar
 // Third Party Declarations
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+import * as fs from 'fs';
 import * as path from 'path';
 import express, { NextFunction, Request, Response } from 'express';
 
-// https://rblx.jira.rkaev.dev/browse/RBXPRR-5473
+// RBXPRR-2 RBXPRR-3:
 // We want to try and not hard code these values.
 // In the future we should have an environment variable for the passphrase
 // and maybe the certificate stuff as well.
-const sharedSettings = {
-  baseTlsDirectory: path.join(projectDirectoryName, 'ssl'),
-  cert: 'mfdlabs-all-authority-roblox-local.crt',
-  chain: 'mfdlabs-root-ca-roblox.crt',
-  key: 'mfdlabs-all-authority-roblox-local.key',
-  passphrase: 'testing123',
-} as startupOptions;
+const settings = {} as startupOptions;
 
 (async () => {
-  googleAnalytics.fireServerEventMetricsProtocol('Server', 'Start');
+  googleAnalytics.fireServerEventGA4('Server', 'Start');
 
   const proxyServer = express();
 
@@ -135,7 +130,7 @@ const sharedSettings = {
     // Not found handler
     // Shows a 404 page, but in the case of the "proxy" it will show 503
     // No cache and close the connection
-    googleAnalytics.fireServerEventMetricsProtocol('Server', 'NotFound', request.url);
+    googleAnalytics.fireServerEventGA4('Server', 'NotFound', request.url);
 
     response
       .status(503)
@@ -155,7 +150,7 @@ const sharedSettings = {
     const errorStack = webUtility.htmlEncode(error.stack);
 
     // Log the error
-    googleAnalytics.fireServerEventMetricsProtocol('Server', 'Error', errorStack);
+    googleAnalytics.fireServerEventGA4('Server', 'Error', errorStack);
 
     response
       .status(500)
@@ -175,29 +170,65 @@ const sharedSettings = {
   ////////////////////////////////////////////////////////////////////////////////////////////////////
 
   if (environment.enableSecureServer) {
-    if (environment.enableTLSv2) sharedSettings.tlsV2 = true;
-    sharedSettings.tls = true;
-    sharedSettings.tlsPort = environment.securePort;
+    if (environment.enableTLSv2) settings.tlsV2 = true;
+    settings.tls = true;
+    settings.tlsPort = environment.securePort;
+
+    if (!fs.existsSync(environment.sslBaseDirectory)) {
+      throw new Error(`The SSL base directory "${environment.sslBaseDirectory}" does not exist.`);
+    }
+
+    const fullyQualifiedCertificatePath = path.join(environment.sslBaseDirectory, environment.sslCertificateFileName);
+    const fullyQualifiedKeyPath = path.join(environment.sslBaseDirectory, environment.sslKeyFileName);
+
+    if (!fs.existsSync(fullyQualifiedCertificatePath)) {
+      throw new Error(`The SSL certificate file "${fullyQualifiedCertificatePath}" does not exist.`);
+    }
+
+    if (!fs.existsSync(fullyQualifiedKeyPath)) {
+      throw new Error(`The SSL key file "${fullyQualifiedKeyPath}" does not exist.`);
+    }
+
+    settings.baseTlsDirectory = environment.sslBaseDirectory;
+    settings.cert = environment.sslCertificateFileName;
+    settings.key = environment.sslKeyFileName;
+
+    if (environment.sslKeyPassphrase !== null) {
+      settings.passphrase = environment.sslKeyPassphrase;
+    }
+
+    if (environment.sslCertificateChainFileName !== null) {
+      const fullyQualifiedCertificateChainPath = path.join(
+        environment.sslBaseDirectory,
+        environment.sslCertificateChainFileName,
+      );
+
+      if (!fs.existsSync(fullyQualifiedCertificateChainPath)) {
+        throw new Error(`The SSL certificate chain file "${fullyQualifiedCertificateChainPath}" does not exist.`);
+      }
+
+      settings.chain = environment.sslCertificateChainFileName;
+    }
   }
 
-  sharedSettings.insecure = true;
-  sharedSettings.insecurePort = environment.insecurePort;
+  settings.insecure = true;
+  settings.insecurePort = environment.insecurePort;
 
-  sharedSettings.bind = environment.bindAddressIPv4;
+  settings.bind = environment.bindAddressIPv4;
 
   web.startServer({
     app: proxyServer,
-    ...sharedSettings,
+    ...settings,
   });
 
-  // https://rblx.jira.rkaev.dev/browse/RBXPRR-5476
+  // https://mfdlabs.atlassian.net/browse/RBXPRR-5476
   // This is a temporary fix for the issue where the server is not able to start when
   // running in a Docker container on IPv6.
   if (!environment.disableIPv6 && !environment.isDocker()) {
-    sharedSettings.bind = environment.bindAddressIPv6;
+    settings.bind = environment.bindAddressIPv6;
     web.startServer({
       app: proxyServer,
-      ...sharedSettings,
+      ...settings,
     });
   }
 })();

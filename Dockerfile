@@ -25,6 +25,13 @@ ENV SPHYNX_HARDCODE_FILE_NAME=sphynx-hardcode.yml
 ENV SPHYNX_DOMAIN=apis.roblox.com
 ENV SPHYNX_REWRITE_BASE_DIRECTORY=
 ENV SPHYNX_REWRITE_RELOAD_ON_REQUEST=false
+ENV SSL_BASE_DIRECTORY=
+ENV SSL_CERTIFICATE_FILE_NAME=mfdlabs-all-authority-roblox-local.crt
+ENV SSL_PRIVATE_KEY_FILE_NAME=mfdlabs-all-authority-roblox-local.key
+ENV SSL_CERTIFICATE_CHAIN_FILE_NAME=mfdlabs-root-ca-roblox.crt
+ENV SSL_KEY_PASSPHRASE=
+ENV EXIT_ON_UNCAUGHT_EXCEPTION=true
+ENV EXIT_ON_UNHANDLED_REJECTION=true
 
 # make the 'app' folder the current working directory
 WORKDIR /app
