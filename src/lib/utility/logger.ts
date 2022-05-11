@@ -124,7 +124,7 @@ abstract class Logger {
     }
   }
 
-  private static _logLocally(type: string, message: string, ...args: any[]) {
+  private static async _logLocally(type: string, message: string, ...args: any[]) {
     if (!fs.existsSync(Logger._logFileDir)) fs.mkdirSync(Logger._logFileDir, { recursive: true });
 
     fs.appendFileSync(Logger._fullyQualifiedLogFileName, Logger._constructLoggerMessage(type, message, ...args));
@@ -149,7 +149,7 @@ abstract class Logger {
     );
   }
 
-  private static _logColorString(type: string, color: LogColor, message: string, ...args: any[]) {
+  private static async _logColorString(type: string, color: LogColor, message: string, ...args: any[]) {
     const formattedMessage = util.format(message, ...args);
 
     const formattedStr = util.format(
