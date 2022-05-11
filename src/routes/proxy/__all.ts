@@ -88,7 +88,7 @@ class AllCatchRoute implements Route {
     host = host.replace(/^https?:\/\//, '');
 
     const testSiteRegex =
-      /(([a-z0-9]+)\.)?((site|game)test[1-5])\.(roblox(labs)?|simul(ping|pong|prod))\.(com|local)/gi;
+      /(([a-z0-9]{0,255})\.)?((site|game)test[1-5])\.(roblox(labs)?|simul(ping|pong|prod))\.(com|local)/gi;
     const testSiteMatch = testSiteRegex.exec(host);
 
     // Capture group 2 is the subdomain
