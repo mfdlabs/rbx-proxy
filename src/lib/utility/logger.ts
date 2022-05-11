@@ -44,6 +44,12 @@ enum LogColor {
 }
 
 /**
+ * Log level to number resolution table.
+ * Only ingested internally.
+ */
+const logLevels = ['none', 'error', 'warning', 'info', 'debug', 'verbose'];
+
+/**
  * A simple console and file Logger.
  */
 abstract class Logger {
@@ -67,6 +73,7 @@ abstract class Logger {
   private static readonly _architechture = process.arch;
   private static readonly _nodeVersion = process.versions.node;
   private static readonly _architechtureFmt = `${Logger._platform}-${Logger._architechture}`;
+  private static _logLevel = environment.logLevel.toLowerCase();
 
   ////////////////////////////////////////////////////////////////////////////////
 
@@ -125,6 +132,8 @@ abstract class Logger {
   }
 
   private static async _logLocally(type: string, message: string, ...args: any[]) {
+    if (!environment.logToFileSystem) return;
+
     if (!fs.existsSync(Logger._logFileDir)) fs.mkdirSync(Logger._logFileDir, { recursive: true });
 
     fs.appendFileSync(Logger._fullyQualifiedLogFileName, Logger._constructLoggerMessage(type, message, ...args));
@@ -150,6 +159,8 @@ abstract class Logger {
   }
 
   private static async _logColorString(type: string, color: LogColor, message: string, ...args: any[]) {
+    if (!environment.logToConsole) return;
+
     const formattedMessage = util.format(message, ...args);
 
     const formattedStr = util.format(
@@ -168,6 +179,18 @@ abstract class Logger {
     } else {
       console.log(formattedStr);
     }
+  }
+
+  private static _checkLogLevel(type: string): boolean {
+    // If the environment loglevel is neither of the valid values, set it to 'info'
+    if (!logLevels.includes(Logger._logLevel)) {
+      Logger._logLevel = 'info';
+    }
+
+    const actualLogLevel = logLevels.indexOf(Logger._logLevel);
+    const logLevelToCheck = logLevels.indexOf(type);
+
+    return actualLogLevel >= logLevelToCheck;
   }
 
   ////////////////////////////////////////////////////////////////////////////////
@@ -214,6 +237,8 @@ abstract class Logger {
    * @returns {void} - Nothing.
    */
   public static async log(message: string, ...args: any[]): Promise<void> {
+    if (!Logger._checkLogLevel('info')) return;
+
     Logger._logColorString('LOG', LogColor.BrightWhite, message, ...args);
     Logger._logLocally('LOG', message, ...args);
   }
@@ -225,6 +250,8 @@ abstract class Logger {
    * @returns {void} - Nothing.
    */
   public static async warning(message: string, ...args: any[]): Promise<void> {
+    if (!Logger._checkLogLevel('warning')) return;
+
     Logger._logColorString('WARN', LogColor.BrightYellow, message, ...args);
     Logger._logLocally('WARN', message, ...args);
   }
@@ -237,6 +264,8 @@ abstract class Logger {
    * @remarks This will create a trace back directly from this method, not the method that called it.
    */
   public static async trace(message: string, ...args: any[]): Promise<void> {
+    if (!Logger._checkLogLevel('debug')) return;
+
     Logger._logColorString('TRACE', LogColor.BrightMagenta, message, ...args);
     Logger._logLocally('TRACE', message, ...args);
   }
@@ -248,6 +277,8 @@ abstract class Logger {
    * @returns {void} - Nothing.
    */
   public static async debug(message: string, ...args: any[]): Promise<void> {
+    if (!Logger._checkLogLevel('debug')) return;
+
     Logger._logColorString('DEBUG', LogColor.BrightMagenta, message, ...args);
     Logger._logLocally('DEBUG', message, ...args);
   }
@@ -259,6 +290,8 @@ abstract class Logger {
    * @returns {void} - Nothing.
    */
   public static async information(message: string, ...args: any[]): Promise<void> {
+    if (!Logger._checkLogLevel('info')) return;
+
     Logger._logColorString('INFO', LogColor.BrightBlue, message, ...args);
     Logger._logLocally('INFO', message, ...args);
   }
@@ -270,6 +303,8 @@ abstract class Logger {
    * @returns {void} - Nothing.
    */
   public static async error(message: string, ...args: any[]): Promise<void> {
+    if (!Logger._checkLogLevel('error')) return;
+
     Logger._logColorString('ERROR', LogColor.BrightRed, message, ...args);
     Logger._logLocally('ERROR', message, ...args);
   }
