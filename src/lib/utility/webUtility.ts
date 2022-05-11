@@ -53,19 +53,6 @@ abstract class WebUtility {
   }
 
   /**
-   * Encodes the given string into a HTML-safe string.
-   * @param {string} str The string to encode.
-   * @returns The encoded string.
-   */
-  public static htmlEncode(str: string) {
-    return str
-      .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
-      .replace(/ /g, '&nbsp;')
-      .replace(/\n/g, '<br />')
-      .replace(/\r/g, '<br />');
-  }
-
-  /**
    * Determines if the input user-agent is a crawler.
    * @param {string} userAgent The user-agent to check.
    * @returns True if the user-agent is a crawler, false otherwise.
