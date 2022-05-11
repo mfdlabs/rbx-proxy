@@ -55,17 +55,17 @@ export default function () {
   });
 
   process.on('uncaughtException', (ex) => {
-    logger.error('\n***\nPROCESS EXCEPTION\n***\n');
+    logger.error('*** BEGIN PROCESS EXCEPTION ***');
     logger.error('REASON FOR EXCEPTION: %s', ex.stack || '');
-    logger.error('\n***\n***\n');
+    logger.error('*** END PROCESS EXCEPTION ***');
 
     if (environment.exitOnUncaughtException) process.exit(1);
   });
 
   process.on('unhandledRejection', (reason) => {
-    logger.error('\n***\nPROCESS REJECTION\n***\n');
+    logger.error('*** BEGIN PROCESS REJECTION ***');
     logger.error('REASON FOR REJECTION: %s', reason || '');
-    logger.error('\n***\n***\n');
+    logger.error('*** END PROCESS REJECTION ***');
 
     if (environment.exitOnUnhandledRejection) process.exit(1);
   });
