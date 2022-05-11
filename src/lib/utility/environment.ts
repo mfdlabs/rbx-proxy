@@ -421,6 +421,33 @@ abstract class Environment {
   public static get exitOnUnhandledRejection(): boolean {
     return this._getSettingOrDefault('EXIT_ON_UNHANDLED_REJECTION', true);
   }
+
+  /**
+   * Used by the logger.
+   * 
+   * If true, we will also log to the file system.
+   */
+  public static get logToFileSystem(): boolean {
+    return this._getSettingOrDefault('LOG_TO_FILE_SYSTEM', true);
+  }
+
+  /**
+   * Used by the logger.
+   * 
+   * If true, we will also log to the console.
+   */
+  public static get logToConsole(): boolean {
+    return this._getSettingOrDefault('LOG_TO_CONSOLE', true);
+  }
+
+  /**
+   * Used by the logger.
+   * 
+   * A loglevel for the logger.
+   */
+  public static get logLevel(): string {
+    return this._getSettingOrDefault('LOG_LEVEL', "info"); // default to info
+  }
 }
 
 export = Environment;
