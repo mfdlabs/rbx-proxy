@@ -24,6 +24,7 @@ import logger from 'lib/utility/logger';
 import webUtility from 'lib/utility/webUtility';
 import environment from 'lib/utility/environment';
 import googleAnalytics from 'lib/utility/googleAnalytics';
+import sphynxServiceRewriteReader from 'lib/proxy/sphynxServiceRewriteReader';
 import loadBalancerInfoResponder from 'lib/responders/loadBalancerInfoResponder';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,10 +40,10 @@ import { RoutingMethod } from 'lib/setup/customTypes/routingMethod';
 
 import * as tls from 'tls';
 import * as net from 'net';
+import htmlEncode from 'escape-html';
 import netHelper from '@mfdlabs/net';
 import axios, { Method } from 'axios';
 import { Request, Response, NextFunction } from 'express';
-import sphynxServiceRewriteReader from 'lib/proxy/sphynxServiceRewriteReader';
 
 /*
     There are 5 forms of loopback we can do here.
@@ -269,7 +270,7 @@ class AllCatchRoute implements Route {
           Pragma: 'no-cache',
         })
         .send(
-          `<html><body><h1>503 Service Unavailable</h1><p>Cannot satisfy request because the hostname ${host} could not be resolved.</p></body></html>`,
+          `<html><body><h1>503 Service Unavailable</h1><p>Cannot satisfy request because the hostname ${htmlEncode(host)} could not be resolved.</p></body></html>`,
         );
       return;
     }
@@ -297,7 +298,7 @@ class AllCatchRoute implements Route {
           Pragma: 'no-cache',
         })
         .send(
-          `<html><body><h1>403 Forbidden</h1><p>Access to the address that ${host} resolved to is forbidden.</p></body></html>`,
+          `<html><body><h1>403 Forbidden</h1><p>Access to the address that ${htmlEncode(host)} resolved to is forbidden.</p></body></html>`,
         );
 
       return;
@@ -328,7 +329,7 @@ class AllCatchRoute implements Route {
           Pragma: 'no-cache',
         })
         .send(
-          `<html><body><h1>403 Forbidden</h1><p>Loopback detected from downstream client '${request.ip}' to upstream server '${resolvedHost}'.</p></body></html>`,
+          `<html><body><h1>403 Forbidden</h1><p>Loopback detected from downstream client '${htmlEncode(request.ip)}' to upstream server '${htmlEncode(resolvedHost)}'.</p></body></html>`,
         );
       return;
     }
@@ -448,7 +449,7 @@ class AllCatchRoute implements Route {
           });
 
           response.send(
-            `<html><body><h1>504 Gateway Timeout</h1><p>The upstream server '${uri}' timed out after ${timing}ms.</p></body></html>`,
+            `<html><body><h1>504 Gateway Timeout</h1><p>The upstream server '${htmlEncode(uri)}' timed out after ${timing}ms.</p></body></html>`,
           );
 
           return;
