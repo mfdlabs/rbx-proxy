@@ -149,8 +149,11 @@ const settings = {} as startupOptions;
 
   proxyServer.use((error: Error, request: Request, response: Response, _next: NextFunction) => {
     // HTML encode the error stack
-    const errorStack = htmlEncode(error.stack);
+    let errorStack = htmlEncode(error.stack);
     const encodedUri = htmlEncode(request.url);
+
+    // Transform the errorStack to correctly show spaces, tabs, and newlines
+    errorStack = errorStack.replace(/\n/g, '<br>').replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;').replace(/ /g, '&nbsp;');
 
     // Log the error
     googleAnalytics.fireServerEventGA4('Server', 'Error', error.stack);
