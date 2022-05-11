@@ -61,25 +61,9 @@ class LoggingMiddleware {
     return LoggingMiddleware._getSocket(request).localPort;
   }
 
-  private static _getSocket(request: Request): tls.TLSSocket | net.Socket {
+  private static _getSocket(request: Request): net.Socket | tls.TLSSocket {
     // spdy does some weird stuff with the raw socket, as in it puts the actual TLSSocket in a nested property
-    if (!((request.socket as any) instanceof tls.TLSSocket)) {
-      // Check if the request is not actually an insecure request
-      // because spdy socket is an instance of net.Socket
-      if (request.protocol !== 'http') {
-        // HACK: this is a hack to get the raw socket from the spdy socket
-        // the _spdyState property is private, but has a property called parent that contains the actual socket
-        // the parent property is a tls.TLSSocket
-        const spdySocket = (request.socket as any)?._spdyState?.parent;
-        if (!(spdySocket instanceof tls.TLSSocket)) {
-          throw new Error('Could not get raw socket from spdy socket');
-        }
-
-        return spdySocket;
-      }
-    }
-
-    return request.socket;
+    return ((request.socket as any)?._spdyState?.parent as tls.TLSSocket) ?? request.socket;
   }
 
   private static _isVerifiedTlsSession(request: Request): boolean {
