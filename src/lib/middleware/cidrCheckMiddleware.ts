@@ -22,7 +22,7 @@
     Written by: Nikita Petko
 */
 
-import logger  from 'lib/utility/logger';
+import logger from 'lib/utility/logger';
 import environment from 'lib/utility/environment';
 
 import net from '@mfdlabs/net';

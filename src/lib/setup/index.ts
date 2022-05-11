@@ -246,7 +246,7 @@ abstract class WebHelper {
 
         resolve([false, reason]);
       });
-      
+
       socket.listen(0, bind, () => {
         socket.close();
         resolve([true, '']);
