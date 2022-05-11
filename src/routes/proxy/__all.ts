@@ -83,24 +83,68 @@ class AllCatchRoute implements Route {
     return host;
   }
 
-  // private static _stringToArrayBuffer(string: string): ArrayBuffer {
-  //     const buffer = new ArrayBuffer(string.length);
-  //     const view = new Uint8Array(buffer);
-  //     for (let i = 0; i < string.length; i++) {
-  //         view[i] = string.charCodeAt(i);
-  //     }
-  //     return buffer;
-  // }
+  private static _parseCookie(cookie: string): { [key: string]: string } {
+    const cookieObject: { [key: string]: string } = {};
 
-  // private static _transformResponseUrls(response: ArrayBuffer, responseUrl: string): ArrayBuffer {
-  //     // Basically convert response to a string, and then replace all the urls with the responseUrl
-  //     // and then convert it back to an arraybuffer
-  //     const responseString = String.fromCharCode.apply(null, new Uint16Array(response));
+    if (cookie === undefined || cookie === null) return cookieObject;
 
-  //     const responseStringWithUrls = responseString.replace(/https?:\/\/[^\s]+/g, responseUrl);
+    const cookieArray = cookie.split(';');
 
-  //     return AllCatchRoute._stringToArrayBuffer(responseStringWithUrls);
-  // }
+    for (const cookiePair of cookieArray) {
+      const cookiePairArray = cookiePair.split('=');
+
+      if (cookiePairArray.length === 2) {
+        cookieObject[decodeURIComponent(cookiePairArray[0].trim())] = decodeURIComponent(cookiePairArray[1].trim());
+      }
+    }
+
+    return cookieObject;
+  }
+
+  private static _transformSetCookieHeader(
+    header: string | string[],
+    testHost: string,
+    host: string,
+  ): string | string[] {
+    if (header === undefined || header === null) return undefined;
+
+    if (typeof header === 'string') {
+      // Parse cookie string, then update it's domain key and reencode it
+      const cookie = AllCatchRoute._parseCookie(header);
+      if (cookie.domain.includes(testHost)) {
+        if (cookie.domain.startsWith('.')) {
+          cookie.domain = `.${host}`;
+        } else {
+          cookie.domain = host;
+        }
+      }
+      return Object.keys(cookie)
+        .map((key) => `${key}=${cookie[key]}`)
+        .join('; ');
+    }
+
+    // If it's an array, update each cookie's domain key and reencode it
+    return header.map((cookie) => AllCatchRoute._transformSetCookieHeader(cookie, testHost, host)) as string[];
+  }
+
+  private static _extractBaseHost(host: string): string {
+    // Extracts just hostname.tld from subdomain.hostname.tld etc
+    return host.split('.').slice(-2).join('.');
+  }
+
+  private static _arrayBufferToString(buffer: ArrayBuffer): string {
+    return String.fromCharCode.apply(null, new Uint16Array(AllCatchRoute._cleanArrayBuffer(buffer)));
+  }
+
+  private static _cleanArrayBuffer(buffer: ArrayBuffer): ArrayBuffer {
+    // This gets rid of the random characters that are added to the beginning of the buffer
+    if (buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
+      // UTF-8 BOM
+      return buffer.slice(3);
+    }
+
+    return buffer;
+  }
 
   private static _applyCorsHeaders(origin: string, response: Response) {
     response.setHeader('Access-Control-Allow-Origin', origin);
@@ -345,10 +389,12 @@ class AllCatchRoute implements Route {
         data: request.body,
 
         headers: {
+          ...request.headers,
+
           'X-Forwarded-For': request.ip,
           'X-Forwarded-Host': hostname,
           'X-Forwarded-Proto': request.protocol,
-          ...request.headers,
+
           // Rewrite the host header to the target host
           host,
           // We also have to rewrite the origin and referer headers to the target host
@@ -362,105 +408,150 @@ class AllCatchRoute implements Route {
         responseType: 'arraybuffer',
 
         url: uri,
+
+        // Override validateStatus to allow for 0-399 status codes
+        validateStatus: (status) => status >= 0 && status < 400,
       })
       .then((res) => {
-        // We need to do some magic and transform CORs headers to the client
-        // Do this by finding Access-Control-Allow-Origin and transform it to the original referrer or origin we had (if set)
-        // Else if the origin or referer header is set, then we can use that
+        try {
+          // We need to do some magic and transform CORs headers to the client
+          // Do this by finding Access-Control-Allow-Origin and transform it to the original referrer or origin we had (if set)
+          // Else if the origin or referer header is set, then we can use that
 
-        const timing = Date.now() - startTime;
+          const timing = Date.now() - startTime;
 
-        logger.debug(
-          "Proxy response %d (%s) from upstream uri '%s' at downstream host '%s' in %dms",
-          res.status,
-          res.statusText,
-          uri,
-          host,
-          timing,
-        );
-        googleAnalytics.fireServerEventGA4(
-          gaCategory,
-          'ProxyResponse',
-          `Proxy response ${res.status} (${res.statusText}) from upstream '${uri}' at downstream host '${host}' in ${timing}ms`,
-        );
-
-        if (origin !== undefined) res.headers['access-control-allow-origin'] = origin;
-
-        res.headers['x-upstream-timing'] = `${timing}ms`;
-
-        response.status(res.status).header(res.headers).send(res.data);
-      })
-      .catch((err) => {
-        const timing = Date.now() - startTime;
-
-        if (err.response !== undefined) {
-          logger.warning(
-            "Proxy error response %d (%s) from upstream uri '%s' at downstream host '%s' in %dms",
-            err.response.status,
-            err.response.statusText,
+          logger.debug(
+            "Proxy response %d (%s) from upstream uri '%s' at downstream host '%s' in %dms",
+            res.status,
+            res.statusText,
             uri,
             host,
             timing,
           );
           googleAnalytics.fireServerEventGA4(
             gaCategory,
-            'ProxyErrorResponse',
-            `Proxy error response ${err.response.status} (${err.response.statusText}) from upstream '${uri}' at downstream host '${host}' in ${timing}ms`,
+            'ProxyResponse',
+            `Proxy response ${res.status} (${res.statusText}) from upstream '${uri}' at downstream host '${host}' in ${timing}ms`,
           );
 
-          if (origin !== undefined) err.response.headers['access-control-allow-origin'] = origin;
+          if (origin !== undefined) res.headers['access-control-allow-origin'] = origin;
 
-          err.response.headers['x-upstream-timing'] = `${timing}ms`;
+          res.headers.server = undefined;
+          res.headers.date = undefined;
+          res.headers.connection = undefined;
+          res.headers['x-powered-by'] = undefined;
+          res.headers['set-cookie'] = AllCatchRoute._transformSetCookieHeader(
+            res.headers['set-cookie'],
+            AllCatchRoute._extractBaseHost(host),
+            AllCatchRoute._extractBaseHost(request.hostname),
+          ) as any;
+          res.headers['x-upstream-timing'] = `${timing}ms`;
 
-          response.status(err.response.status);
-          response.header(err.response.headers);
-          response.send(err.response.data);
-          return;
+          const body = AllCatchRoute._arrayBufferToString(res.data);
+
+          response.status(res.status).header(res.headers).end(body, 'utf-8');
+        } catch (e) {
+          logger.error('Error while proxying response: %s', e.message);
+          googleAnalytics.fireServerEventGA4(
+            gaCategory,
+            'ProxyResponseError',
+            `Error while proxying response: ${e.message}`,
+          );
+          next(e);
         }
+      })
+      .catch((err) => {
+        try {
+          const timing = Date.now() - startTime;
 
-        // Check if error is a timeout
-        if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
-          logger.warning(
-            "Proxy timed out from upstream '%s' on downstream host '%s' after %dms.",
+          if (err.response !== undefined) {
+            logger.warning(
+              "Proxy error response %d (%s) from upstream uri '%s' at downstream host '%s' in %dms",
+              err.response.status,
+              err.response.statusText,
+              uri,
+              host,
+              timing,
+            );
+            googleAnalytics.fireServerEventGA4(
+              gaCategory,
+              'ProxyErrorResponse',
+              `Proxy error response ${err.response.status} (${err.response.statusText}) from upstream '${uri}' at downstream host '${host}' in ${timing}ms`,
+            );
+
+            if (origin !== undefined) err.response.headers['access-control-allow-origin'] = origin;
+
+            err.response.headers.server = undefined;
+            err.response.headers.date = undefined;
+            err.response.headers.connection = undefined;
+            err.response.headers['x-powered-by'] = undefined;
+            err.response.headers['set-cookie'] = AllCatchRoute._transformSetCookieHeader(
+              err.response.headers['set-cookie'],
+              AllCatchRoute._extractBaseHost(host),
+              AllCatchRoute._extractBaseHost(request.hostname),
+            ) as any;
+            err.response.headers['x-upstream-timing'] = `${timing}ms`;
+
+            const body = AllCatchRoute._arrayBufferToString(err.response.data);
+
+            response.status(err.response.status);
+            response.header(err.response.headers);
+            response.end(body, 'utf-8');
+            return;
+          }
+
+          // Check if error is a timeout
+          if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
+            logger.warning(
+              "Proxy timed out from upstream '%s' on downstream host '%s' after %dms.",
+              uri,
+              hostname,
+              timing,
+            );
+            googleAnalytics.fireServerEventGA4(
+              gaCategory,
+              'ProxyTimeout',
+              `Proxy timeout from upstream '${uri}' on downstream host '${hostname}' after ${timing}ms`,
+            );
+
+            response.status(504);
+
+            response.header({
+              'x-upstream-timing': `${timing}ms`,
+            });
+
+            response.send(
+              `<html><body><h1>504 Gateway Timeout</h1><p>The upstream server '${htmlEncode(
+                uri,
+              )}' timed out after ${timing}ms.</p></body></html>`,
+            );
+
+            return;
+          }
+
+          logger.error(
+            "Proxy error '%s' from upstream uri '%s' at downstream host '%s' in %dms",
+            err.message,
             uri,
             hostname,
             timing,
           );
           googleAnalytics.fireServerEventGA4(
             gaCategory,
-            'ProxyTimeout',
-            `Proxy timeout from upstream '${uri}' on downstream host '${hostname}' after ${timing}ms`,
+            'ProxyErrorUnknown',
+            `Proxy error '${err.message}' from upstream '${uri}' at downstream host '${hostname}' in ${timing}ms`,
           );
 
-          response.status(504);
-
-          response.header({
-            'x-upstream-timing': `${timing}ms`,
-          });
-
-          response.send(
-            `<html><body><h1>504 Gateway Timeout</h1><p>The upstream server '${htmlEncode(
-              uri,
-            )}' timed out after ${timing}ms.</p></body></html>`,
+          next(); // We didn't get a response so it'll just pass it onto upstream error handler
+        } catch (e) {
+          logger.error('Error while proxying response: %s', e.message);
+          googleAnalytics.fireServerEventGA4(
+            gaCategory,
+            'ProxyResponseError',
+            `Error while proxying response: ${e.message}`,
           );
-
-          return;
+          next(e);
         }
-
-        logger.error(
-          "Proxy error '%s' from upstream uri '%s' at downstream host '%s' in %dms",
-          err.message,
-          uri,
-          hostname,
-          timing,
-        );
-        googleAnalytics.fireServerEventGA4(
-          gaCategory,
-          'ProxyErrorUnknown',
-          `Proxy error '${err.message}' from upstream '${uri}' at downstream host '${hostname}' in ${timing}ms`,
-        );
-
-        next(); // We didn't get a response so it'll just pass it onto upstream error handler
       });
   }
 }
