@@ -153,7 +153,7 @@ class AllCatchRoute implements Route {
       }
     }
 
-    googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'Request', baseGaString);
+    googleAnalytics.fireServerEventGA4(gaCategory, 'Request', baseGaString);
 
     if (AllCatchRoute._publicIp === undefined) {
       AllCatchRoute._publicIp = await netHelper.getPublicIP();
@@ -162,7 +162,7 @@ class AllCatchRoute implements Route {
 
       if (!environment.ga4DisableLoggingIPs)
         /* This may be cause controversy */
-        googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'PublicIPInitalized', AllCatchRoute._publicIp);
+        googleAnalytics.fireServerEventGA4(gaCategory, 'PublicIPInitalized', AllCatchRoute._publicIp);
     }
 
     const startTime = Date.now();
@@ -172,7 +172,7 @@ class AllCatchRoute implements Route {
 
     if (origin) {
       logger.information('Origin is present, setting CORS headers');
-      googleAnalytics.fireServerEventMetricsProtocol(
+      googleAnalytics.fireServerEventGA4(
         gaCategory,
         'ApplyCorsHeaders',
         `Original Origin: ${origin}\nTransformed Origin: ${transformedOrigin}`,
@@ -183,7 +183,7 @@ class AllCatchRoute implements Route {
 
     if (request.method === 'OPTIONS') {
       logger.information('Request is an OPTIONS request, responding with empty body');
-      googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'OptionsRequest', 'Empty Response');
+      googleAnalytics.fireServerEventGA4(gaCategory, 'OptionsRequest', 'Empty Response');
 
       response.send();
 
@@ -193,7 +193,7 @@ class AllCatchRoute implements Route {
     // If the url is /, /health or /checkhealth then show the health check page
     if (request.url === '/_lb/_/health' || request.url === '/_lb/_/checkhealth') {
       logger.information('Request is a health check request, responding with health check page');
-      googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'HealthCheckRequest', baseGaString);
+      googleAnalytics.fireServerEventGA4(gaCategory, 'HealthCheckRequest', baseGaString);
 
       loadBalancerInfoResponder.invoke(response, true, true, true);
       return;
@@ -208,7 +208,7 @@ class AllCatchRoute implements Route {
 
     if (hostname === undefined || hostname === null || hostname === '') {
       logger.warning('Hostname is undefined or null, responding with invalid hostname error');
-      googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'InvalidHostname', baseGaString);
+      googleAnalytics.fireServerEventGA4(gaCategory, 'InvalidHostname', baseGaString);
 
       response
         .status(400)
@@ -228,14 +228,14 @@ class AllCatchRoute implements Route {
 
     if (host === environment.sphynxDomain) {
       logger.information('Request is for sphynx');
-      googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'SphynxRequest', baseGaString);
+      googleAnalytics.fireServerEventGA4(gaCategory, 'SphynxRequest', baseGaString);
 
       // Check if there is a hardcoded redirect for the sphynx domain
       const hardcodedResponse = sphynxServiceRewriteReader.getHardcodedResponse(request.method, request.url);
 
       if (hardcodedResponse) {
         logger.information('Found hardcoded response for sphynx request, responding with it');
-        googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'HardcodedResponse', baseGaString);
+        googleAnalytics.fireServerEventGA4(gaCategory, 'HardcodedResponse', baseGaString);
 
         response
           .header(hardcodedResponse.headers)
@@ -247,7 +247,7 @@ class AllCatchRoute implements Route {
       }
 
       logger.information('No hardcoded response found for sphynx request, try and transform service path');
-      googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'NoHardcodedResponse', baseGaString);
+      googleAnalytics.fireServerEventGA4(gaCategory, 'NoHardcodedResponse', baseGaString);
 
       request.url = sphynxServiceRewriteReader.transformUrl(request.url);
     }
@@ -258,7 +258,7 @@ class AllCatchRoute implements Route {
 
     if (resolvedHost === undefined || resolvedHost === null) {
       logger.warning("Resolved host for '%s' is undefined or null, responding with invalid hostname error", host);
-      googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'NXDomain', baseGaString);
+      googleAnalytics.fireServerEventGA4(gaCategory, 'NXDomain', baseGaString);
 
       response
         .status(503)
@@ -286,7 +286,7 @@ class AllCatchRoute implements Route {
         netHelper.isIPv6RFC3879(host))
     ) {
       logger.warning("Request to '%s' or '%s' is from a LAN, responding with LAN access error", host, resolvedHost);
-      googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'LANAccess', baseGaString);
+      googleAnalytics.fireServerEventGA4(gaCategory, 'LANAccess', baseGaString);
 
       response
         .status(403)
@@ -316,7 +316,7 @@ class AllCatchRoute implements Route {
       resolvedHost === AllCatchRoute._publicIp
     ) {
       logger.warning("Request to '%s' or '%s' is a loopback, responding with loopback error", host, resolvedHost);
-      googleAnalytics.fireServerEventMetricsProtocol(gaCategory, 'LoopbackDetected', baseGaString);
+      googleAnalytics.fireServerEventGA4(gaCategory, 'LoopbackDetected', baseGaString);
 
       // LB level error
       response
@@ -387,7 +387,7 @@ class AllCatchRoute implements Route {
           host,
           timing,
         );
-        googleAnalytics.fireServerEventMetricsProtocol(
+        googleAnalytics.fireServerEventGA4(
           gaCategory,
           'ProxyResponse',
           `Proxy response ${res.status} (${res.statusText}) from upstream '${uri}' at downstream host '${host}' in ${timing}ms`,
@@ -411,7 +411,7 @@ class AllCatchRoute implements Route {
             host,
             timing,
           );
-          googleAnalytics.fireServerEventMetricsProtocol(
+          googleAnalytics.fireServerEventGA4(
             gaCategory,
             'ProxyErrorResponse',
             `Proxy error response ${err.response.status} (${err.response.statusText}) from upstream '${uri}' at downstream host '${host}' in ${timing}ms`,
@@ -435,7 +435,7 @@ class AllCatchRoute implements Route {
             hostname,
             timing,
           );
-          googleAnalytics.fireServerEventMetricsProtocol(
+          googleAnalytics.fireServerEventGA4(
             gaCategory,
             'ProxyTimeout',
             `Proxy timeout from upstream '${uri}' on downstream host '${hostname}' after ${timing}ms`,
@@ -461,7 +461,7 @@ class AllCatchRoute implements Route {
           hostname,
           timing,
         );
-        googleAnalytics.fireServerEventMetricsProtocol(
+        googleAnalytics.fireServerEventGA4(
           gaCategory,
           'ProxyErrorUnknown',
           `Proxy error '${err.message}' from upstream '${uri}' at downstream host '${hostname}' in ${timing}ms`,
