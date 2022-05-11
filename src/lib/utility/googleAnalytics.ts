@@ -21,7 +21,7 @@
 */
 
 import ga4 from 'lib/ga4';
-import logger  from './logger';
+import logger from './logger';
 import environment from './environment';
 
 import net from '@mfdlabs/net';
@@ -45,11 +45,7 @@ abstract class GoogleAnalytics {
     ) {
       if (environment.ga4EnableLogging) ga4.overrideLoggers(logger.information, logger.error);
 
-      ga4.initialize(
-        environment.ga4MeasurementID,
-        environment.ga4APISecret,
-        environment.ga4EnableValidation,
-      );
+      ga4.initialize(environment.ga4MeasurementID, environment.ga4APISecret, environment.ga4EnableValidation);
       this._isInitialized = true;
     }
   }
