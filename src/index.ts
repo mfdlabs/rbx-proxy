@@ -58,7 +58,6 @@ googleAnalytics.initialize();
 
 import web from 'lib/setup';
 import logger from 'lib/utility/logger';
-import webUtility from 'lib/utility/webUtility';
 import environment from 'lib/utility/environment';
 import { projectDirectoryName } from 'lib/directories';
 
@@ -83,6 +82,7 @@ import loadBalancerInfoMiddleware from 'lib/middleware/loadBalancerInfoMiddlewar
 
 import * as fs from 'fs';
 import * as path from 'path';
+import htmlEncode from 'escape-html';
 import express, { NextFunction, Request, Response } from 'express';
 
 // RBXPRR-2 RBXPRR-3:
@@ -127,6 +127,8 @@ const settings = {} as startupOptions;
   });
 
   proxyServer.use((request, response) => {
+    const encodedUri = htmlEncode(request.url);
+
     // Not found handler
     // Shows a 404 page, but in the case of the "proxy" it will show 503
     // No cache and close the connection
@@ -141,16 +143,17 @@ const settings = {} as startupOptions;
         Pragma: 'no-cache',
       })
       .send(
-        `<html><body><h1>503 Service Unavailable</h1><p>No upstream server for downstream route: ${request.url}</p></body></html>`,
+        `<html><body><h1>503 Service Unavailable</h1><p>No upstream server for downstream route: ${encodedUri}</p></body></html>`,
       );
   });
 
   proxyServer.use((error: Error, request: Request, response: Response, _next: NextFunction) => {
     // HTML encode the error stack
-    const errorStack = webUtility.htmlEncode(error.stack);
+    const errorStack = htmlEncode(error.stack);
+    const encodedUri = htmlEncode(request.url);
 
     // Log the error
-    googleAnalytics.fireServerEventGA4('Server', 'Error', errorStack);
+    googleAnalytics.fireServerEventGA4('Server', 'Error', error.stack);
 
     response
       .status(500)
@@ -161,7 +164,7 @@ const settings = {} as startupOptions;
         Pragma: 'no-cache',
       })
       .send(
-        `<html><body><h1>500 Internal Server Error</h1><p>An error occurred when sending a request to the downstream route: ${request.url}</p><p><b>${errorStack}</b></p></body></html>`,
+        `<html><body><h1>500 Internal Server Error</h1><p>An error occurred when sending a request to the downstream route: ${encodedUri}</p><p><b>${errorStack}</b></p></body></html>`,
       );
   });
 
