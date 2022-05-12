@@ -466,6 +466,10 @@ class AllCatchRoute implements Route {
 
           const body = AllCatchRoute._arrayBufferToString(res.data);
 
+          // set the content-length header
+          delete res.headers['content-length'];
+          res.headers['content-length'] = body.length.toString();
+
           response.status(res.status).header(res.headers).end(body, 'utf-8');
         } catch (e) {
           logger.error('Error while proxying response: %s', e.message);
@@ -523,6 +527,10 @@ class AllCatchRoute implements Route {
             if (err.response.headers['set-cookie'] === undefined) delete err.response.headers['set-cookie'];
 
             const body = AllCatchRoute._arrayBufferToString(err.response.data);
+
+            // set the content-length header
+            delete err.response.headers['content-length'];
+            err.response.headers['content-length'] = body.length.toString();
 
             response.status(err.response.status);
             response.header(err.response.headers);

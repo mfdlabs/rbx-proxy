@@ -46,7 +46,7 @@ class LoadBalancerInfoResponder {
       response.header({
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         Connection: 'close',
-        'Content-Type': 'text/html',
+        'Content-Type': 'text/plain',
         Expires: '0',
         Pragma: 'no-cache',
       });
