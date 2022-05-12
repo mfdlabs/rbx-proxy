@@ -133,7 +133,7 @@ class AllCatchRoute implements Route {
   }
 
   private static _arrayBufferToString(buffer: ArrayBuffer): string {
-    return String.fromCharCode.apply(null, new Uint16Array(AllCatchRoute._cleanArrayBuffer(buffer)));
+    return AllCatchRoute._textDecoder.decode(AllCatchRoute._cleanArrayBuffer(buffer));
   }
 
   private static _cleanArrayBuffer(buffer: ArrayBuffer): ArrayBuffer {
@@ -154,6 +154,7 @@ class AllCatchRoute implements Route {
   }
 
   private static _publicIp: string;
+  private static _textDecoder: TextDecoder = new TextDecoder();
 
   public async invoke(request: Request, response: Response, next: NextFunction) {
     const gaCategory = `Proxy_${webUtility.generateUUIDV4()}`;
