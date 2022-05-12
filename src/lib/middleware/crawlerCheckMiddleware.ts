@@ -21,9 +21,9 @@
     Written by: Nikita Petko
 */
 
-import logger from 'lib/utility/logger';
-import environment from 'lib/utility/environment';
-import webUtility from 'lib/utility/webUtility';
+import logger from '@lib/utility/logger';
+import environment from '@lib/utility/environment';
+import webUtility from '@lib/utility/webUtility';
 
 import { NextFunction, Request, Response } from 'express';
 

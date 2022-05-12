@@ -20,9 +20,9 @@
     Written by: Nikita Petko
 */
 
-import webUtility from './webUtility';
-import environment from './environment';
-import { projectDirectoryName } from 'lib/directories';
+import webUtility from '@lib/utility/webUtility';
+import environment from '@lib/utility/environment';
+import { projectDirectoryName } from '@lib/directories';
 
 import * as fs from 'fs';
 import * as path from 'path';

@@ -20,19 +20,19 @@
     Written by: Nikita Petko
 */
 
-import logger from 'lib/utility/logger';
-import webUtility from 'lib/utility/webUtility';
-import environment from 'lib/utility/environment';
-import googleAnalytics from 'lib/utility/googleAnalytics';
-import sphynxServiceRewriteReader from 'lib/proxy/sphynxServiceRewriteReader';
-import loadBalancerInfoResponder from 'lib/responders/loadBalancerInfoResponder';
+import logger from '@lib/utility/logger';
+import webUtility from '@lib/utility/webUtility';
+import environment from '@lib/utility/environment';
+import googleAnalytics from '@lib/utility/googleAnalytics';
+import sphynxServiceRewriteReader from '@lib/proxy/sphynxServiceRewriteReader';
+import loadBalancerInfoResponder from '@lib/responders/loadBalancerInfoResponder';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Type imports.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import Route from 'lib/setup/contracts/route';
-import { RoutingMethod } from 'lib/setup/customTypes/routingMethod';
+import Route from '@lib/setup/contracts/route';
+import { RoutingMethod } from '@lib/setup/customTypes/routingMethod';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Third-party imports.

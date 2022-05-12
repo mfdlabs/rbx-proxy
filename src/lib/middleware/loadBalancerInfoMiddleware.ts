@@ -20,7 +20,7 @@
     Written by: Nikita Petko
 */
 
-import loadBalancerInfoResponder from 'lib/responders/loadBalancerInfoResponder';
+import loadBalancerInfoResponder from '@lib/responders/loadBalancerInfoResponder';
 
 import { NextFunction, Request, Response } from 'express';
 

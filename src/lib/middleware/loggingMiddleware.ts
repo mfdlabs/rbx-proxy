@@ -20,7 +20,7 @@
     Written by: Nikita Petko
 */
 
-import logger from 'lib/utility/logger';
+import logger from '@lib/utility/logger';
 
 import * as tls from 'tls';
 import * as net from 'net';

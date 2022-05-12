@@ -20,9 +20,9 @@
     Written by: Nikita Petko
 */
 
-import ga4 from 'lib/ga4';
-import logger from './logger';
-import environment from './environment';
+import ga4 from '@lib/ga4';
+import logger from '@lib/utility/logger';
+import environment from '@lib/utility/environment';
 
 import net from '@mfdlabs/net';
 

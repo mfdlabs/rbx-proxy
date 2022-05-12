@@ -20,7 +20,7 @@
     Written by: Nikita Petko
 */
 
-import { projectDirectoryName } from 'lib/directories';
+import { projectDirectoryName } from '@lib/directories';
 
 import * as fs from 'fs';
 import * as path from 'path';

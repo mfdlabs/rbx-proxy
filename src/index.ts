@@ -44,10 +44,10 @@ importHandler();
 import stdinHandler from './stdinHandler';
 stdinHandler();
 
-import dotenvLoader from 'lib/utility/dotenvLoader';
+import dotenvLoader from '@lib/utility/dotenvLoader';
 dotenvLoader.reloadEnvironment();
 
-import googleAnalytics from 'lib/utility/googleAnalytics';
+import googleAnalytics from '@lib/utility/googleAnalytics';
 googleAnalytics.initialize();
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -56,25 +56,25 @@ googleAnalytics.initialize();
 // Primary Declarations
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import web from 'lib/setup';
-import logger from 'lib/utility/logger';
-import environment from 'lib/utility/environment';
-import { projectDirectoryName } from 'lib/directories';
+import web from '@lib/setup';
+import logger from '@lib/utility/logger';
+import environment from '@lib/utility/environment';
+import { projectDirectoryName } from '@lib/directories';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Type Declarations
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import startupOptions from 'lib/setup/options/startupOptions';
+import startupOptions from '@lib/setup/options/startupOptions';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Middleware
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import loggingMiddleware from './lib/middleware/loggingMiddleware';
-import cidrCheckMiddleware from 'lib/middleware/cidrCheckMiddleware';
-import crawlerCheckMiddleware from 'lib/middleware/crawlerCheckMiddleware';
-import loadBalancerInfoMiddleware from 'lib/middleware/loadBalancerInfoMiddleware';
+import loggingMiddleware from '@lib/middleware/loggingMiddleware';
+import cidrCheckMiddleware from '@lib/middleware/cidrCheckMiddleware';
+import crawlerCheckMiddleware from '@lib/middleware/crawlerCheckMiddleware';
+import loadBalancerInfoMiddleware from '@lib/middleware/loadBalancerInfoMiddleware';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Third Party Declarations

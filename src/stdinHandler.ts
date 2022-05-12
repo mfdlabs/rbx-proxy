@@ -20,8 +20,8 @@
 	Written by: Nikita Petko
 */
 
-import logger from 'lib/utility/logger';
-import environment from 'lib/utility/environment';
+import logger from '@lib/utility/logger';
+import environment from '@lib/utility/environment';
 
 export default function () {
   process.stdin.resume();

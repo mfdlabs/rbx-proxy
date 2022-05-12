@@ -20,7 +20,7 @@
     Written by: Nikita Petko
 */
 
-import environment from 'lib/utility/environment';
+import environment from '@lib/utility/environment';
 
 import * as fs from 'fs';
 import * as path from 'path';
