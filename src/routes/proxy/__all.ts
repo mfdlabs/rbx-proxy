@@ -412,6 +412,9 @@ class AllCatchRoute implements Route {
 
         // Override validateStatus to allow for 0-399 status codes
         validateStatus: (status) => status >= 0 && status < 400,
+
+        // Allow no redirects
+        maxRedirects: 0,
       })
       .then((res) => {
         try {
@@ -437,16 +440,29 @@ class AllCatchRoute implements Route {
 
           if (origin !== undefined) res.headers['access-control-allow-origin'] = origin;
 
-          res.headers.server = undefined;
-          res.headers.date = undefined;
-          res.headers.connection = undefined;
-          res.headers['x-powered-by'] = undefined;
+          // Check the location header to see if we need to redirect
+          if (res.headers.location) {
+            const location = res.headers.location;
+            logger.debug("Redirecting to '%s'", location);
+
+            // If the request is a domain, then replace this request hostname with the current transformed hostname
+            if (location.startsWith('http://') || location.startsWith('https://')) {
+              res.headers.location = location.replace(host, request.hostname);
+            }
+          }
+
+          delete res.headers.server;
+          delete res.headers.date;
+          delete res.headers.connection;
+          delete res.headers['x-powered-by'];
           res.headers['set-cookie'] = AllCatchRoute._transformSetCookieHeader(
             res.headers['set-cookie'],
             AllCatchRoute._extractBaseHost(host),
             AllCatchRoute._extractBaseHost(request.hostname),
           ) as any;
           res.headers['x-upstream-timing'] = `${timing}ms`;
+
+          if (res.headers['set-cookie'] === undefined) delete res.headers['set-cookie'];
 
           const body = AllCatchRoute._arrayBufferToString(res.data);
 
@@ -482,16 +498,29 @@ class AllCatchRoute implements Route {
 
             if (origin !== undefined) err.response.headers['access-control-allow-origin'] = origin;
 
-            err.response.headers.server = undefined;
-            err.response.headers.date = undefined;
-            err.response.headers.connection = undefined;
-            err.response.headers['x-powered-by'] = undefined;
+            // Check the location header to see if we need to redirect (this is unlikely as this header is not really going to be on anything other than a 3xx response)
+            if (err.response.headers.location) {
+              const location = err.response.headers.location;
+              logger.debug("Redirecting to '%s'", location);
+
+              // If the request is a domain, then replace this request hostname with the current transformed hostname
+              if (location.startsWith('http://') || location.startsWith('https://')) {
+                err.response.headers.location = location.replace(host, request.hostname);
+              }
+            }
+
+            delete err.response.headers.server;
+            delete err.response.headers.date;
+            delete err.response.headers.connection;
+            delete err.response.headers['x-powered-by'];
             err.response.headers['set-cookie'] = AllCatchRoute._transformSetCookieHeader(
               err.response.headers['set-cookie'],
               AllCatchRoute._extractBaseHost(host),
               AllCatchRoute._extractBaseHost(request.hostname),
             ) as any;
             err.response.headers['x-upstream-timing'] = `${timing}ms`;
+
+            if (err.response.headers['set-cookie'] === undefined) delete err.response.headers['set-cookie'];
 
             const body = AllCatchRoute._arrayBufferToString(err.response.data);
 
