@@ -23,30 +23,61 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+const CH_PERIOD = 0x2e as const;
+const CH_AT = 0x40 as const;
+
+const baseUrl = path.dirname(require.main.filename);
+const paths = require.main.paths;
+
+const cache = {};
+
+const moduleProto = Object.getPrototypeOf(module);
+const origRequire = moduleProto.require;
+
 export default function () {
-  //#region Hook on require() to resolve paths.
-  const CH_PERIOD = 46;
-  const baseUrl = path.dirname(process.mainModule.filename);
-  const existsCache = { d: 0 };
-  delete existsCache.d;
-  const moduleProto = Object.getPrototypeOf(module);
-  const origRequire = moduleProto.require;
-  moduleProto.require = function (request) {
-    let existsPath = existsCache[request];
-    if (existsPath === undefined) {
-      existsPath = '';
-      if (!path.isAbsolute(request) && request.charCodeAt(0) !== CH_PERIOD) {
-        const ext = path.extname(request);
-        const basedRequest = path.join(baseUrl, ext ? request : request + '.js');
-        if (fs.existsSync(basedRequest)) existsPath = basedRequest;
-        else {
-          const basedIndexRequest = path.join(baseUrl, request, 'index.js');
-          existsPath = fs.existsSync(basedIndexRequest) ? basedIndexRequest : '';
+  moduleProto.require = function (id: string) {
+    let cachedPath = cache[id];
+
+    if (cachedPath === undefined) {
+      cachedPath = '';
+
+      // If the path is not like /home/user/test/file.js or ./file.js then we need to
+      // search for the file in the paths.
+      if (!path.isAbsolute(id) && id.charCodeAt(0) !== CH_PERIOD) {
+        // If it starts with @ but isn't in node_modules, it's probably a file path.
+        if (id.charCodeAt(0) === CH_AT) {
+          // Normally the second string within paths is the node_modules path.
+          const nodeModulesPath = paths[1];
+
+          if (nodeModulesPath.includes('node_modules')) {
+            // Join the nodeModules path with the request.
+            const nodeModulePath = path.join(nodeModulesPath, id);
+
+            // If it doesn't exist then remove the @ from the request as it's probably a file path.
+            if (!fs.existsSync(nodeModulePath)) {
+              id = id.slice(1);
+            }
+          }
+        }
+
+        const ext = path.extname(id);
+        const basedRequest = path.join(baseUrl, ext ? id : id + '.js');
+
+        if (fs.existsSync(basedRequest)) {
+          // It exists at the specified path. Use that.
+          cachedPath = basedRequest;
+        } else {
+          // It doesn't exist at the specified path.
+          // See if it's a index.js file.
+
+          const basedIndexRequest = path.join(baseUrl, id, 'index.js');
+
+          cachedPath = fs.existsSync(basedIndexRequest) ? basedIndexRequest : '';
         }
       }
-      existsCache[request] = existsPath;
+      cache[id] = cachedPath;
     }
-    return origRequire.call(this, existsPath || request);
+    return origRequire.call(this, cachedPath || id);
   };
   //#endregion
 }

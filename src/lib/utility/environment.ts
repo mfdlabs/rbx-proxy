@@ -20,9 +20,9 @@
     Written by: Nikita Petko
 */
 
-import dotenvLoader from './dotenvLoader';
-import typeConverters from './typeConverter';
-import { projectDirectoryName } from 'lib/directories';
+import dotenvLoader from '@lib/utility/dotenvLoader';
+import typeConverters from '@lib/utility/typeConverter';
+import { projectDirectoryName } from '@lib/directories';
 
 import * as fs from 'fs';
 import * as path from 'path';

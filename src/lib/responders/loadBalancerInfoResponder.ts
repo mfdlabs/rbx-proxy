@@ -20,7 +20,7 @@
     Written by: Nikita Petko
 */
 
-import webUtility from 'lib/utility/webUtility';
+import webUtility from '@lib/utility/webUtility';
 
 import net from '@mfdlabs/net';
 import { Response } from 'express';
