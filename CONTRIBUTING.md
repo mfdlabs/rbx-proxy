@@ -51,6 +51,8 @@ The main ruling for commits is that they MUST be signed with a GPG key, if you m
 To learn how to do this, please follow this guide:
 - [Signing Commits](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits)
 
+The only exception to this rule is if you had originally made your commit via [GitHub Enterprise](https://git.vmminfra.dev/mfdlabs/rbx-proxy), as the signatures will never match.
+
 ### Reviews
 
 When you create a pull-request, even if you're a repository administrator, you will have to go through code review. You can review the [CODEOWNERS](./CODEOWNERS) file for a list of default assigned members that will review your pull-request, or you can request another repository administrator or organization member to do it for you.
