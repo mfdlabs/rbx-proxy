@@ -36,7 +36,7 @@ abstract class Environment {
   // Trys to get then deserialize the value of the environment variable.
   private static _getSettingOrDefault<T extends any = any>(
     setting: string,
-    defaultValue: T,
+    defaultValue: T | (() => T),
     reloadEnvironment: boolean = true,
   ): T {
     if (reloadEnvironment) {
@@ -368,7 +368,7 @@ abstract class Environment {
    * @throws {Error} The environment variable SSL_CERTIFICATE_FILE_NAME is not set.
    */
   public static get sslCertificateFileName(): string {
-    return this._getSettingOrDefault<any>('SSL_CERTIFICATE_FILE_NAME', () => {
+    return this._getSettingOrDefault<string>('SSL_CERTIFICATE_FILE_NAME', () => {
       throw new Error('SSL_CERTIFICATE_FILE_NAME is not set.');
     });
   }
@@ -381,7 +381,7 @@ abstract class Environment {
    * @throws {Error} The environment variable SSL_KEY_FILE_NAME is not set.
    */
   public static get sslKeyFileName(): string {
-    return this._getSettingOrDefault<any>('SSL_KEY_FILE_NAME', () => {
+    return this._getSettingOrDefault<string>('SSL_KEY_FILE_NAME', () => {
       throw new Error('SSL_KEY_FILE_NAME is not set.');
     });
   }
@@ -424,7 +424,7 @@ abstract class Environment {
 
   /**
    * Used by the logger.
-   * 
+   *
    * If true, we will also log to the file system.
    */
   public static get logToFileSystem(): boolean {
@@ -433,7 +433,7 @@ abstract class Environment {
 
   /**
    * Used by the logger.
-   * 
+   *
    * If true, we will also log to the console.
    */
   public static get logToConsole(): boolean {
@@ -442,11 +442,56 @@ abstract class Environment {
 
   /**
    * Used by the logger.
-   * 
+   *
    * A loglevel for the logger.
    */
   public static get logLevel(): string {
-    return this._getSettingOrDefault('LOG_LEVEL', "info"); // default to info
+    return this._getSettingOrDefault('LOG_LEVEL', 'info'); // default to info
+  }
+
+  /**
+   * Used by the cors writer.
+   *
+   * Represents the fileName of the CORs rules file.
+   */
+  public static get corsRulesFileName(): string {
+    return this._getSettingOrDefault('CORS_RULES_FILE_NAME', 'cors-rules.yml');
+  }
+
+  /**
+   * Used by the cors writer.
+   *
+   * Represents the base directory for the CORs rules files.
+   */
+  public static get corsRulesBaseDirectory(): string {
+    return this._getSettingOrDefault('CORS_RULES_BASE_DIRECTORY', projectDirectoryName);
+  }
+
+  /**
+   * Used by the cors writer.
+   *
+   * If true, it will reload the CORs rules file on each request.
+   */
+  public static get corsRulesReloadOnRequest(): boolean {
+    return this._getSettingOrDefault('CORS_RULES_RELOAD_ON_REQUEST', false);
+  }
+
+  /**
+   * Used by the all route catcher.
+   *
+   * If true, it will apply the CORs headers regardless of if the origin matches the route's allowedOrigins.
+   */
+  public static get corsApplyHeadersRegardlessOfOrigin(): boolean {
+    return this._getSettingOrDefault('CORS_APPLY_HEADERS_REGARDLESS_OF_ORIGIN', false);
+  }
+
+  /**
+   * Used by the all route catcher.
+   *
+   * If true, it will apply the CORs headers regardless of if the origin header is present.
+   */
+  public static get corsApplyHeadersRegardlessOfOriginHeader(): boolean {
+    return this._getSettingOrDefault('CORS_APPLY_HEADERS_REGARDLESS_OF_ORIGIN_HEADER', false);
   }
 }
 
