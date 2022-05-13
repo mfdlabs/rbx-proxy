@@ -254,8 +254,13 @@ export default abstract class CorsWriter {
       // Transform the methods to upper case.
       rule.allowedMethods = rule.allowedMethods.map((m) => m.toUpperCase());
 
+      // If the allowed origins includes '*', then transform it to /^\*$/ and remove every other origin.#
+      if (rule.allowedOrigins.includes('*')) {
+        rule.allowedOrigins = [/^\*$/];
+      }
+
       // Transform the origins to regex.
-      rule.allowedOrigins = rule.allowedOrigins.map((o) => new RegExp(o));
+      rule.allowedOrigins = rule.allowedOrigins.map((o) => (o instanceof RegExp ? o : new RegExp(o)));
 
       // Remove the duplicates.
       rule.allowedHeaders = rule.allowedHeaders.filter((h, i) => rule.allowedHeaders.indexOf(h) === i);
