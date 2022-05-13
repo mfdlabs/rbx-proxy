@@ -32,12 +32,17 @@ ENV SSL_CERTIFICATE_CHAIN_FILE_NAME=global-ca.crt
 ENV SSL_KEY_PASSPHRASE=
 ENV EXIT_ON_UNCAUGHT_EXCEPTION=true
 ENV EXIT_ON_UNHANDLED_REJECTION=true
+ENV LOG_TO_FILE_SYSTEM=false
+ENV LOG_TO_CONSOLE=true
+ENV LOG_LEVEL=info
+ENV CORS_RULES_FILE_NAME=cors-rules.yml
+ENV CORS_RULES_BASE_DIRECTORY=
+ENV CORS_RULES_RELOAD_ON_REQUEST=false
+ENV CORS_APPLY_HEADERS_REGARDLESS_OF_ORIGIN=false
+ENV CORS_APPLY_HEADERS_REGARDLESS_OF_ORIGIN_HEADER=false
 
 # make the 'app' folder the current working directory
 WORKDIR /app
-
-# copy both 'package.json' and 'package-lock.json' (if available)
-COPY package*.json ./
 
 # copy project files and folders to the current working directory (i.e. 'app' folder)
 COPY . .

@@ -18,9 +18,11 @@
     File Name: __all.ts
     Description: This route will proxy all requests to the server. The __all part will treat this as a middleware instead of a direct route.
     Written by: Nikita Petko
+    TODO: [RBXPRR-27] Support WebSockets.
 */
 
 import logger from '@lib/utility/logger';
+import corsWriter from '@lib/proxy/corsWriter';
 import webUtility from '@lib/utility/webUtility';
 import environment from '@lib/utility/environment';
 import googleAnalytics from '@lib/utility/googleAnalytics';
@@ -146,11 +148,43 @@ class AllCatchRoute implements Route {
     return buffer;
   }
 
-  private static _applyCorsHeaders(origin: string, response: Response) {
-    response.setHeader('Access-Control-Allow-Origin', origin);
-    response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-CSRF-Token');
-    response.setHeader('Access-Control-Allow-Credentials', 'true');
+  private static _isOriginAllowed(allowedOrigins: RegExp[], origin: string): boolean {
+    for (const allowedOrigin of allowedOrigins) {
+      if (allowedOrigin.test(origin)) return true;
+      if (allowedOrigin === /^\*$/) return true;
+    }
+
+    return false;
+  }
+
+  private static _applyCorsHeaders(origin: string, request: Request, response: Response): boolean {
+    const corsRule = corsWriter.getRule(request);
+
+    if (corsRule) {
+      if (
+        AllCatchRoute._isOriginAllowed(corsRule.allowedOrigins as RegExp[], origin) ||
+        corsRule.allowRequestOriginIfNoAllowedOrigins ||
+        environment.corsApplyHeadersRegardlessOfOrigin
+      ) {
+        if (corsRule.allowedOrigins.includes(/^\*$/)) response.setHeader('Access-Control-Allow-Origin', '*');
+        else response.setHeader('Access-Control-Allow-Origin', origin);
+
+        if (corsRule.allowedHeaders.length > 0)
+          response.setHeader('Access-Control-Allow-Headers', corsRule.allowedHeaders.join(', '));
+        if (corsRule.allowedMethods.length > 0)
+          response.setHeader('Access-Control-Allow-Methods', corsRule.allowedMethods.join(', '));
+        if (corsRule.exposedHeaders.length > 0)
+          response.setHeader('Access-Control-Expose-Headers', corsRule.exposedHeaders.join(', '));
+        if (corsRule.maxAge !== undefined) response.setHeader('Access-Control-Max-Age', corsRule.maxAge.toString());
+        if (corsRule.allowCredentials) response.setHeader('Access-Control-Allow-Credentials', 'true');
+
+        response.setHeader('Vary', 'Origin');
+      }
+
+      return corsRule.allowResponseHeadersOverwrite;
+    }
+
+    return true;
   }
 
   private static _publicIp: string;
@@ -197,28 +231,8 @@ class AllCatchRoute implements Route {
 
     const startTime = Date.now();
 
-    const origin = request.headers.origin ?? request.headers.referer;
+    const origin = request.headers.origin;
     const transformedOrigin = `${request.secure ? 'https' : 'http'}://${AllCatchRoute._transformRequestHost(origin)}`;
-
-    if (origin) {
-      logger.information('Origin is present, setting CORS headers');
-      googleAnalytics.fireServerEventGA4(
-        gaCategory,
-        'ApplyCorsHeaders',
-        `Original Origin: ${origin}\nTransformed Origin: ${transformedOrigin}`,
-      );
-
-      AllCatchRoute._applyCorsHeaders(origin, response);
-    }
-
-    if (request.method === 'OPTIONS') {
-      logger.information('Request is an OPTIONS request, responding with empty body');
-      googleAnalytics.fireServerEventGA4(gaCategory, 'OptionsRequest', 'Empty Response');
-
-      response.send();
-
-      return;
-    }
 
     // If the url is /, /health or /checkhealth then show the health check page
     if (request.url === '/_lb/_/health' || request.url === '/_lb/_/checkhealth') {
@@ -377,6 +391,19 @@ class AllCatchRoute implements Route {
 
     const uri = `${request.secure ? 'https' : 'http'}://${host}:${port}${url}`;
 
+    let allowCorsHeaderOverwrite = true;
+
+    if (origin || environment.corsApplyHeadersRegardlessOfOriginHeader) {
+      logger.information('Origin is present, setting CORS headers');
+      googleAnalytics.fireServerEventGA4(
+        gaCategory,
+        'ApplyCorsHeaders',
+        `Original Origin: ${origin}\nTransformed Origin: ${transformedOrigin}`,
+      );
+
+      allowCorsHeaderOverwrite = AllCatchRoute._applyCorsHeaders(origin, request, response);
+    }
+
     logger.debug(
       "Proxy request '%s' from client '%s' on host '%s' to upstream uri '%s'",
       request.method,
@@ -418,10 +445,6 @@ class AllCatchRoute implements Route {
       })
       .then((res) => {
         try {
-          // We need to do some magic and transform CORs headers to the client
-          // Do this by finding Access-Control-Allow-Origin and transform it to the original referrer or origin we had (if set)
-          // Else if the origin or referer header is set, then we can use that
-
           const timing = Date.now() - startTime;
 
           logger.debug(
@@ -438,8 +461,6 @@ class AllCatchRoute implements Route {
             `Proxy response ${res.status} (${res.statusText}) from upstream '${uri}' at downstream host '${host}' in ${timing}ms`,
           );
 
-          if (origin !== undefined) res.headers['access-control-allow-origin'] = origin;
-
           // Check the location header to see if we need to redirect
           if (res.headers.location) {
             const location = res.headers.location;
@@ -448,6 +469,30 @@ class AllCatchRoute implements Route {
             // If the request is a domain, then replace this request hostname with the current transformed hostname
             if (location.startsWith('http://') || location.startsWith('https://')) {
               res.headers.location = location.replace(host, request.hostname);
+            }
+          }
+
+          if (allowCorsHeaderOverwrite) {
+            if (
+              res.headers['access-control-allow-headers'] !== undefined &&
+              res.headers['access-control-allow-headers'].length > 0
+            ) {
+              response.removeHeader('access-control-allow-headers');
+            }
+            if (
+              res.headers['access-control-allow-methods'] !== undefined &&
+              res.headers['access-control-allow-methods'].length > 0
+            ) {
+              response.removeHeader('access-control-allow-methods');
+            }
+            if (res.headers['access-control-max-age'] !== undefined) {
+              response.removeHeader('access-control-max-age');
+            }
+            if (
+              res.headers['access-control-expose-headers'] !== undefined &&
+              res.headers['access-control-expose-headers'].length > 0
+            ) {
+              response.removeHeader('access-control-expose-headers');
             }
           }
 
@@ -470,7 +515,14 @@ class AllCatchRoute implements Route {
           delete res.headers['content-length'];
           res.headers['content-length'] = body.length.toString();
 
-          response.status(res.status).header(res.headers).end(body, 'utf-8');
+          response.status(res.status);
+          response.header(res.headers);
+          response.getHeaderNames().forEach((headerName: string) => {
+            const headerValue = response.getHeader(headerName);
+            response.removeHeader(headerName);
+            response.setHeader(headerName.toLowerCase(), headerValue);
+          });
+          response.end(body, 'utf-8');
         } catch (e) {
           logger.error('Error while proxying response: %s', e.message);
           googleAnalytics.fireServerEventGA4(
@@ -500,8 +552,6 @@ class AllCatchRoute implements Route {
               `Proxy error response ${err.response.status} (${err.response.statusText}) from upstream '${uri}' at downstream host '${host}' in ${timing}ms`,
             );
 
-            if (origin !== undefined) err.response.headers['access-control-allow-origin'] = origin;
-
             // Check the location header to see if we need to redirect (this is unlikely as this header is not really going to be on anything other than a 3xx response)
             if (err.response.headers.location) {
               const location = err.response.headers.location;
@@ -510,6 +560,30 @@ class AllCatchRoute implements Route {
               // If the request is a domain, then replace this request hostname with the current transformed hostname
               if (location.startsWith('http://') || location.startsWith('https://')) {
                 err.response.headers.location = location.replace(host, request.hostname);
+              }
+            }
+
+            if (allowCorsHeaderOverwrite) {
+              if (
+                err.response.headers['access-control-allow-headers'] !== undefined &&
+                err.response.headers['access-control-allow-headers'].length > 0
+              ) {
+                response.removeHeader('access-control-allow-headers');
+              }
+              if (
+                err.response.headers['access-control-allow-methods'] !== undefined &&
+                err.response.headers['access-control-allow-methods'].length > 0
+              ) {
+                response.removeHeader('access-control-allow-methods');
+              }
+              if (err.response.headers['access-control-max-age'] !== undefined) {
+                response.removeHeader('access-control-max-age');
+              }
+              if (
+                err.response.headers['access-control-expose-headers'] !== undefined &&
+                err.response.headers['access-control-expose-headers'].length > 0
+              ) {
+                response.removeHeader('access-control-expose-headers');
               }
             }
 
@@ -534,6 +608,11 @@ class AllCatchRoute implements Route {
 
             response.status(err.response.status);
             response.header(err.response.headers);
+            response.getHeaderNames().forEach((headerName: string) => {
+              const headerValue = response.getHeader(headerName);
+              response.removeHeader(headerName);
+              response.setHeader(headerName.toLowerCase(), headerValue);
+            });
             response.end(body, 'utf-8');
             return;
           }

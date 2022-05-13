@@ -45,7 +45,7 @@ abstract class SphynxServiceRewriteReader {
    * Initialize the rewrite rules.
    * @returns {void} Nothing.
    */
-  public static initialize(): void {
+  private static _initialize(): void {
     if (this._initialized && !environment.sphynxRewriteReloadOnRequest) return;
 
     this._initialized = true;
@@ -59,11 +59,11 @@ abstract class SphynxServiceRewriteReader {
 
     switch (fileExtension) {
       case '.json':
-        this._rewriteRules = JSON.parse(fs.readFileSync(rewriteFile, 'utf8'));
+        this._rewriteRules = JSON.parse(fs.readFileSync(rewriteFile, 'utf8')) ?? {};
         break;
       case '.yaml':
       case '.yml':
-        this._rewriteRules = yaml.load(fs.readFileSync(rewriteFile, 'utf8')) as { [key: string]: string };
+        this._rewriteRules = (yaml.load(fs.readFileSync(rewriteFile, 'utf8')) as { [key: string]: string }) ?? {};
         break;
       default:
         throw new Error(`Unsupported file extension: ${fileExtension}`);
@@ -90,34 +90,25 @@ abstract class SphynxServiceRewriteReader {
 
     switch (hardcodedResponseFileExtension) {
       case '.json':
-        this._hardcodedResponseRules = JSON.parse(fs.readFileSync(hardcodedResponseFile, 'utf8'));
+        this._hardcodedResponseRules = JSON.parse(fs.readFileSync(hardcodedResponseFile, 'utf8')) ?? [];
         break;
       case '.yaml':
       case '.yml':
-        this._hardcodedResponseRules = yaml.load(
-          fs.readFileSync(hardcodedResponseFile, 'utf8'),
-        ) as SphynxHardcodeRewrite[];
+        this._hardcodedResponseRules =
+          (yaml.load(fs.readFileSync(hardcodedResponseFile, 'utf8')) as SphynxHardcodeRewrite[]) ?? [];
         break;
       default:
         throw new Error(`Unsupported file extension: ${hardcodedResponseFileExtension}`);
     }
 
-    // Validate the hardcoded response rules.
     for (const rule of this._hardcodedResponseRules) {
       if (!rule.template) {
         throw new Error(`Hardcoded response rule is missing template.`);
       }
-    }
-
-    // Convert the template to regex.
-    for (const rule of this._hardcodedResponseRules) {
       if (typeof rule.template === 'string') {
         rule.template = new RegExp(rule.template);
       }
-    }
 
-    // Check if the headers are string or numbers
-    for (const rule of this._hardcodedResponseRules) {
       for (const key in rule.headers) {
         if (!rule.headers.hasOwnProperty(key)) continue;
 
@@ -125,36 +116,24 @@ abstract class SphynxServiceRewriteReader {
           throw new Error(`Hardcoded response rule header ${key} is not a string or number.`);
         }
       }
-    }
 
-    // Check if the content type is a string.
-    for (const rule of this._hardcodedResponseRules) {
       if (typeof rule.contentType !== 'string') {
         throw new Error(`Hardcoded response rule content type is not a string.`);
       }
-    }
 
-    // Check if the status code is a number.
-    for (const rule of this._hardcodedResponseRules) {
       if (rule.statusCode === undefined) {
         rule.statusCode = 200;
       }
       if (typeof rule.statusCode !== 'number' || isNaN(rule.statusCode)) {
         throw new Error(`Hardcoded response rule status code is not a number.`);
       }
-    }
 
-    // If the method is not set, set it to 'ALL'.
-    for (const rule of this._hardcodedResponseRules) {
       if (!rule.method) {
         rule.method = 'all';
       } else {
         rule.method = rule.method.toLowerCase();
       }
-    }
 
-    // If the body is not set, set it to an empty string.
-    for (const rule of this._hardcodedResponseRules) {
       if (rule.body === undefined) {
         rule.body = '';
       }
@@ -167,7 +146,7 @@ abstract class SphynxServiceRewriteReader {
    * @returns {string} The transformed url.
    */
   public static transformUrl(url: string): string {
-    this.initialize();
+    this._initialize();
 
     // Normally sphynx service urls are in the form of:
     // https://apis.{environment}/{service}/{ocelotReroute}
@@ -196,7 +175,7 @@ abstract class SphynxServiceRewriteReader {
    * @returns {SphynxHardcodeRewrite} The hardcoded response.
    */
   public static getHardcodedResponse(method: string, url: string): SphynxHardcodeRewrite {
-    this.initialize();
+    this._initialize();
 
     // Remove query string from the url, and remove trailing slash.
     const urlWithoutQueryString = url.replace(/\?.*/, '').replace(/\/$/, '');

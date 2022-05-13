@@ -1,0 +1,21 @@
+# CORs rules for routes.
+# You can define the rules for a route on every host.
+# The rules are applied in the order they are found.
+
+# Route template is a regex that will be matched against the request URI (without the query string).
+- routeTemplate: .* # Matches any request URI. If the route template is not specified, this value will be inferred from the route.
+  hostname: "*" # Matches any hostname. If the hostname is not specified, this value will be inferred.
+  method: "*" # Matches any method. If the method is not specified, this value will be inferred.
+  scheme: "*" # Matches any scheme. If the scheme is not specified, this value will be inferred.
+  allowCredentials: true # If true, allows credentials to be sent. If this value is not specified, it will default to false.
+  allowedHeaders:
+    - "*" # Responds with 'Access-Control-Allow-Headers: *'. If this value is not specified, it will default to an empty list.
+  allowedMethods:
+    - "*" # Responds with 'Access-Control-Allow-Methods: *'. If this value is not specified, it will default to an empty list.
+  allowedOrigins:
+    - "*" # Responds with 'Access-Control-Allow-Origin: *'. If this value is not specified, it will default to an empty list.
+  exposedHeaders:
+    - "Example-Header" # Responds with 'Access-Control-Expose-Headers: Example-Header'. If this value is not specified, it will default to an empty list.
+  maxAge: 3600 # Responds with 'Access-Control-Max-Age: 3600'. If this value is not specified, it will not be present in the response.
+  allowRequestOriginIfNoAllowedOrigins: false # If true, allows the request origin to be sent if no allowed origins are specified. If this value is not specified, it will default to false.
+  allowResponseHeadersOverwrite: false # If true, allows the response headers to be overwritten by the axios response (except Access-Control-Allow-Origin). If this value is not specified, it will default to false.
