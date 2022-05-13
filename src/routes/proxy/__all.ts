@@ -165,7 +165,8 @@ class AllCatchRoute implements Route {
         corsRule.allowRequestOriginIfNoAllowedOrigins ||
         environment.corsApplyHeadersRegardlessOfOrigin
       ) {
-        response.setHeader('Access-Control-Allow-Origin', origin);
+        if (corsRule.allowedOrigins.includes(/\*/)) response.setHeader('Access-Control-Allow-Origin', '*');
+        else response.setHeader('Access-Control-Allow-Origin', origin);
 
         if (corsRule.allowedHeaders.length > 0)
           response.setHeader('Access-Control-Allow-Headers', corsRule.allowedHeaders.join(', '));
