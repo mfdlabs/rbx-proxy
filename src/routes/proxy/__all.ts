@@ -151,6 +151,7 @@ class AllCatchRoute implements Route {
   private static _isOriginAllowed(allowedOrigins: RegExp[], origin: string): boolean {
     for (const allowedOrigin of allowedOrigins) {
       if (allowedOrigin.test(origin)) return true;
+      if (allowedOrigin === /^\*$/) return true;
     }
 
     return false;
@@ -165,7 +166,7 @@ class AllCatchRoute implements Route {
         corsRule.allowRequestOriginIfNoAllowedOrigins ||
         environment.corsApplyHeadersRegardlessOfOrigin
       ) {
-        if (corsRule.allowedOrigins.includes(/\*/)) response.setHeader('Access-Control-Allow-Origin', '*');
+        if (corsRule.allowedOrigins.includes(/^\*$/)) response.setHeader('Access-Control-Allow-Origin', '*');
         else response.setHeader('Access-Control-Allow-Origin', origin);
 
         if (corsRule.allowedHeaders.length > 0)
