@@ -13,3 +13,6 @@ src/lib/directories.ts
 !sphynx-hardcode.yml
 !sphynx-hardcode.yaml
 !sphynx-hardcode.json
+!cors-rules.yml
+!cors-rules.yaml
+!cors-rules.json
