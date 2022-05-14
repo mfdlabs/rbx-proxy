@@ -148,10 +148,15 @@ class AllCatchRoute implements Route {
     return buffer;
   }
 
-  private static _isOriginAllowed(allowedOrigins: RegExp[], origin: string): boolean {
-    for (const allowedOrigin of allowedOrigins) {
+  private static _isOriginAllowed(allowedOrigins: (string | RegExp)[], origin: string): boolean {
+    for (const allowedOrigin of allowedOrigins as RegExp[]) {
       if (allowedOrigin.test(origin)) return true;
-      if (allowedOrigin === /^\*$/) return true;
+      if (allowedOrigin.toString() === '/^\\*$/') {
+        // Replace the /^\*$/ regex with '*'
+        allowedOrigins.splice(allowedOrigins.indexOf(allowedOrigin), 1, /^\*$/);
+        allowedOrigins.push('*');
+        return true;
+      }
     }
 
     return false;
@@ -166,8 +171,12 @@ class AllCatchRoute implements Route {
         corsRule.allowRequestOriginIfNoAllowedOrigins ||
         environment.corsApplyHeadersRegardlessOfOrigin
       ) {
-        if (corsRule.allowedOrigins.includes(/^\*$/)) response.setHeader('Access-Control-Allow-Origin', '*');
-        else response.setHeader('Access-Control-Allow-Origin', origin);
+        if (corsRule.allowedOrigins.includes('*')) response.setHeader('Access-Control-Allow-Origin', '*');
+        else {
+          if (origin !== undefined) {
+            response.setHeader('Access-Control-Allow-Origin', origin);
+          }
+        }
 
         if (corsRule.allowedHeaders.length > 0)
           response.setHeader('Access-Control-Allow-Headers', corsRule.allowedHeaders.join(', '));
@@ -235,7 +244,7 @@ class AllCatchRoute implements Route {
     const transformedOrigin = `${request.secure ? 'https' : 'http'}://${AllCatchRoute._transformRequestHost(origin)}`;
 
     // If the url is /, /health or /checkhealth then show the health check page
-    if (request.url === '/_lb/_/health' || request.url === '/_lb/_/checkhealth') {
+    if (request.originalUrl === '/_lb/_/health' || request.originalUrl === '/_lb/_/checkhealth') {
       logger.information('Request is a health check request, responding with health check page');
       googleAnalytics.fireServerEventGA4(gaCategory, 'HealthCheckRequest', baseGaString);
 
@@ -269,32 +278,6 @@ class AllCatchRoute implements Route {
     }
 
     const host = AllCatchRoute._transformRequestHost(hostname);
-
-    if (host === environment.sphynxDomain) {
-      logger.information('Request is for sphynx');
-      googleAnalytics.fireServerEventGA4(gaCategory, 'SphynxRequest', baseGaString);
-
-      // Check if there is a hardcoded redirect for the sphynx domain
-      const hardcodedResponse = sphynxServiceRewriteReader.getHardcodedResponse(request.method, request.url);
-
-      if (hardcodedResponse) {
-        logger.information('Found hardcoded response for sphynx request, responding with it');
-        googleAnalytics.fireServerEventGA4(gaCategory, 'HardcodedResponse', baseGaString);
-
-        response
-          .header(hardcodedResponse.headers)
-          .contentType(hardcodedResponse.contentType ?? 'text/html')
-          .status(hardcodedResponse.statusCode)
-          .send(hardcodedResponse.body);
-
-        return;
-      }
-
-      logger.information('No hardcoded response found for sphynx request, try and transform service path');
-      googleAnalytics.fireServerEventGA4(gaCategory, 'NoHardcodedResponse', baseGaString);
-
-      request.url = sphynxServiceRewriteReader.transformUrl(request.url);
-    }
 
     // We have to be careful here to not allow loopback requests or requests to the proxy itself as they will cause an infinite loop
 
@@ -383,10 +366,6 @@ class AllCatchRoute implements Route {
       return;
     }
 
-    const url = request.originalUrl;
-    const port = AllCatchRoute._getLocalPort(request);
-    const uri = `${request.secure ? 'https' : 'http'}://${host}:${port}${url}`;
-
     let allowCorsHeaderOverwrite = true;
 
     if (origin || environment.corsApplyHeadersRegardlessOfOriginHeader) {
@@ -399,6 +378,47 @@ class AllCatchRoute implements Route {
 
       allowCorsHeaderOverwrite = AllCatchRoute._applyCorsHeaders(origin, request, response);
     }
+
+    if (host === environment.sphynxDomain) {
+      logger.information('Request is for sphynx');
+      googleAnalytics.fireServerEventGA4(gaCategory, 'SphynxRequest', baseGaString);
+
+      // Check if there is a hardcoded redirect for the sphynx domain
+      const hardcodedResponse = sphynxServiceRewriteReader.getHardcodedResponse(request.method, request.originalUrl);
+
+      if (hardcodedResponse) {
+        logger.information('Found hardcoded response for sphynx request, responding with it');
+        googleAnalytics.fireServerEventGA4(gaCategory, 'HardcodedResponse', baseGaString);
+
+        response.header('x-hardcoded-response-template', hardcodedResponse.template.toString());
+
+        const body =
+          hardcodedResponse.body instanceof Object ? JSON.stringify(hardcodedResponse.body) : hardcodedResponse.body;
+
+        response.header('content-length', body.length);
+
+        response.header(hardcodedResponse.headers);
+        response.contentType(hardcodedResponse.contentType ?? 'text/html');
+        response.status(hardcodedResponse.statusCode);
+        response.getHeaderNames().forEach((headerName: string) => {
+          const headerValue = response.getHeader(headerName);
+          response.removeHeader(headerName);
+          response.setHeader(headerName.toLowerCase(), headerValue);
+        });
+        response.end(body);
+
+        return;
+      }
+
+      logger.information('No hardcoded response found for sphynx request, try and transform service path');
+      googleAnalytics.fireServerEventGA4(gaCategory, 'NoHardcodedResponse', baseGaString);
+
+      request.originalUrl = sphynxServiceRewriteReader.transformUrl(request.originalUrl);
+    }
+
+    const url = request.originalUrl;
+    const port = AllCatchRoute._getLocalPort(request);
+    const uri = `${request.secure ? 'https' : 'http'}://${host}:${port}${url}`;
 
     logger.debug(
       "Proxy request '%s' from client '%s' on upstream hostname '%s' to downstream URI '%s'",

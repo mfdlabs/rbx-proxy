@@ -136,13 +136,14 @@ const settings = {} as startupOptions;
     // Not found handler
     // Shows a 404 page, but in the case of the "proxy" it will show 503
     // No cache and close the connection
-    googleAnalytics.fireServerEventGA4('Server', 'NotFound', request.url);
+    googleAnalytics.fireServerEventGA4('Server', 'NotFound', request.originalUrl);
 
     response
       .status(503)
       .header({
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         Connection: 'close',
+        'Content-Type': 'text/html',
         Expires: '0',
         Pragma: 'no-cache',
       })
@@ -167,6 +168,7 @@ const settings = {} as startupOptions;
       .header({
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         Connection: 'close',
+        'Content-Type': 'text/html',
         Expires: '0',
         Pragma: 'no-cache',
       })
