@@ -47,7 +47,7 @@ class LoggingMiddleware {
       request.protocol,
       localIp,
       port,
-      request.url,
+      request.originalUrl,
       request.headers.host || 'No Host Header',
       LoggingMiddleware._getTruncatedUserAgent(request.headers['user-agent']),
       request.ip,
