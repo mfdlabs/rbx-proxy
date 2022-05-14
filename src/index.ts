@@ -123,11 +123,15 @@ const settings = {} as startupOptions;
       logSetup: true,
       routesPath: web.getRoutesDirectory('proxy'),
     },
+    routingOptions: {
+      caseSensitive: true, // We want to be case sensitive for our routes, so that /a and /A are different
+      strict: true, // We want /a and /a/ to be treated as different routes
+    },
     trustProxy: false,
   });
 
   proxyServer.use((request, response) => {
-    const encodedUri = htmlEncode(request.url);
+    const encodedUri = htmlEncode(`${request.protocol}://${request.hostname}${request.originalUrl}`);
 
     // Not found handler
     // Shows a 404 page, but in the case of the "proxy" it will show 503
@@ -143,14 +147,14 @@ const settings = {} as startupOptions;
         Pragma: 'no-cache',
       })
       .send(
-        `<html><body><h1>503 Service Unavailable</h1><p>No upstream server for downstream route: ${encodedUri}</p></body></html>`,
+        `<html><body><h1>503 Service Unavailable</h1><p>No downstream server for upstream URI: ${encodedUri}</p></body></html>`,
       );
   });
 
   proxyServer.use((error: Error, request: Request, response: Response, _next: NextFunction) => {
     // HTML encode the error stack
     let errorStack = htmlEncode(error.stack);
-    const encodedUri = htmlEncode(request.url);
+    const encodedUri = htmlEncode(`${request.protocol}://${request.hostname}${request.originalUrl}`);
 
     // Transform the errorStack to correctly show spaces, tabs, and newlines
     errorStack = errorStack.replace(/\n/g, '<br>').replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;').replace(/ /g, '&nbsp;');
@@ -167,7 +171,7 @@ const settings = {} as startupOptions;
         Pragma: 'no-cache',
       })
       .send(
-        `<html><body><h1>500 Internal Server Error</h1><p>An error occurred when sending a request to the downstream route: ${encodedUri}</p><p><b>${errorStack}</b></p></body></html>`,
+        `<html><body><h1>500 Internal Server Error</h1><p>An error occurred when sending a request to the upstream URI: ${encodedUri}</p><p><b>${errorStack}</b></p></body></html>`,
       );
   });
 
