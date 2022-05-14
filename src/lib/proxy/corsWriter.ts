@@ -280,7 +280,7 @@ export default abstract class CorsWriter {
   public static getRule(request: Request): CorsRule | undefined {
     this._initialize();
 
-    const urlWithoutQueryString = request.url.replace(/\?.*/, '').replace(/\/$/, '');
+    const urlWithoutQueryString = request.originalUrl.replace(/\?.*/, '').replace(/\/$/, '');
 
     return this._corsRules.find((r) => {
       // routeTemplate is a regexp.
