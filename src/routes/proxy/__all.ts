@@ -248,7 +248,7 @@ class AllCatchRoute implements Route {
     // It will forward all response headers and response body to the client
     // It will forward all errors to the client
 
-    const hostname: string = (request.headers['x-forwarded-host'] as string) ?? (request.headers.host as string);
+    const hostname: string = request.headers.host as string;
 
     if (hostname === undefined || hostname === null || hostname === '') {
       logger.warning('Hostname is undefined or null, responding with invalid hostname error');
@@ -376,19 +376,15 @@ class AllCatchRoute implements Route {
           Pragma: 'no-cache',
         })
         .send(
-          `<html><body><h1>403 Forbidden</h1><p>Loopback detected from downstream client '${htmlEncode(
+          `<html><body><h1>403 Forbidden</h1><p>Loopback detected from upstream client '${htmlEncode(
             request.ip,
-          )}' to upstream server '${htmlEncode(resolvedHost)}'.</p></body></html>`,
+          )}' to downstream server '${htmlEncode(resolvedHost)}'.</p></body></html>`,
         );
       return;
     }
 
-    const url = request.url;
-
-    const forwardedPort = request.headers['x-forwarded-port'] as string;
-
-    const port = forwardedPort ? parseInt(forwardedPort, 10) : AllCatchRoute._getLocalPort(request);
-
+    const url = request.originalUrl;
+    const port = AllCatchRoute._getLocalPort(request);
     const uri = `${request.secure ? 'https' : 'http'}://${host}:${port}${url}`;
 
     let allowCorsHeaderOverwrite = true;
@@ -405,7 +401,7 @@ class AllCatchRoute implements Route {
     }
 
     logger.debug(
-      "Proxy request '%s' from client '%s' on host '%s' to upstream uri '%s'",
+      "Proxy request '%s' from client '%s' on upstream hostname '%s' to downstream URI '%s'",
       request.method,
       request.ip,
       hostname,
@@ -448,17 +444,17 @@ class AllCatchRoute implements Route {
           const timing = Date.now() - startTime;
 
           logger.debug(
-            "Proxy response %d (%s) from upstream uri '%s' at downstream host '%s' in %dms",
+            "Proxy response %d (%s) from downstream URI '%s' at upstream hostname '%s' in %dms",
             res.status,
             res.statusText,
             uri,
-            host,
+            hostname,
             timing,
           );
           googleAnalytics.fireServerEventGA4(
             gaCategory,
             'ProxyResponse',
-            `Proxy response ${res.status} (${res.statusText}) from upstream '${uri}' at downstream host '${host}' in ${timing}ms`,
+            `Proxy response ${res.status} (${res.statusText}) from downstream URI '${uri}' at upstream hostname '${hostname}' in ${timing}ms`,
           );
 
           // Check the location header to see if we need to redirect
@@ -468,7 +464,7 @@ class AllCatchRoute implements Route {
 
             // If the request is a domain, then replace this request hostname with the current transformed hostname
             if (location.startsWith('http://') || location.startsWith('https://')) {
-              res.headers.location = location.replace(host, request.hostname);
+              res.headers.location = location.replace(host, hostname);
             }
           }
 
@@ -503,9 +499,9 @@ class AllCatchRoute implements Route {
           res.headers['set-cookie'] = AllCatchRoute._transformSetCookieHeader(
             res.headers['set-cookie'],
             AllCatchRoute._extractBaseHost(host),
-            AllCatchRoute._extractBaseHost(request.hostname),
+            AllCatchRoute._extractBaseHost(hostname),
           ) as any;
-          res.headers['x-upstream-timing'] = `${timing}ms`;
+          res.headers['x-downstream-timing'] = `${timing}ms`;
 
           if (res.headers['set-cookie'] === undefined) delete res.headers['set-cookie'];
 
@@ -539,17 +535,17 @@ class AllCatchRoute implements Route {
 
           if (err.response !== undefined) {
             logger.warning(
-              "Proxy error response %d (%s) from upstream uri '%s' at downstream host '%s' in %dms",
+              "Proxy error response %d (%s) from downstream URI '%s' at upstream hostname '%s' in %dms",
               err.response.status,
               err.response.statusText,
               uri,
-              host,
+              hostname,
               timing,
             );
             googleAnalytics.fireServerEventGA4(
               gaCategory,
               'ProxyErrorResponse',
-              `Proxy error response ${err.response.status} (${err.response.statusText}) from upstream '${uri}' at downstream host '${host}' in ${timing}ms`,
+              `Proxy error response ${err.response.status} (${err.response.statusText}) from downstream URI '${uri}' at upstream hostname '${hostname}' in ${timing}ms`,
             );
 
             // Check the location header to see if we need to redirect (this is unlikely as this header is not really going to be on anything other than a 3xx response)
@@ -559,7 +555,7 @@ class AllCatchRoute implements Route {
 
               // If the request is a domain, then replace this request hostname with the current transformed hostname
               if (location.startsWith('http://') || location.startsWith('https://')) {
-                err.response.headers.location = location.replace(host, request.hostname);
+                err.response.headers.location = location.replace(host, hostname);
               }
             }
 
@@ -594,9 +590,9 @@ class AllCatchRoute implements Route {
             err.response.headers['set-cookie'] = AllCatchRoute._transformSetCookieHeader(
               err.response.headers['set-cookie'],
               AllCatchRoute._extractBaseHost(host),
-              AllCatchRoute._extractBaseHost(request.hostname),
+              AllCatchRoute._extractBaseHost(hostname),
             ) as any;
-            err.response.headers['x-upstream-timing'] = `${timing}ms`;
+            err.response.headers['x-downstream-timing'] = `${timing}ms`;
 
             if (err.response.headers['set-cookie'] === undefined) delete err.response.headers['set-cookie'];
 
@@ -620,7 +616,7 @@ class AllCatchRoute implements Route {
           // Check if error is a timeout
           if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
             logger.warning(
-              "Proxy timed out from upstream '%s' on downstream host '%s' after %dms.",
+              "Proxy timed out from downstream URI '%s' on upstream hostname '%s' after %dms.",
               uri,
               hostname,
               timing,
@@ -628,17 +624,17 @@ class AllCatchRoute implements Route {
             googleAnalytics.fireServerEventGA4(
               gaCategory,
               'ProxyTimeout',
-              `Proxy timeout from upstream '${uri}' on downstream host '${hostname}' after ${timing}ms`,
+              `Proxy timeout from downstream URI '${uri}' on upstream hostname '${hostname}' after ${timing}ms`,
             );
 
             response.status(504);
 
             response.header({
-              'x-upstream-timing': `${timing}ms`,
+              'x-downstream-timing': `${timing}ms`,
             });
 
             response.send(
-              `<html><body><h1>504 Gateway Timeout</h1><p>The upstream server '${htmlEncode(
+              `<html><body><h1>504 Gateway Timeout</h1><p>The downstream URI '${htmlEncode(
                 uri,
               )}' timed out after ${timing}ms.</p></body></html>`,
             );
@@ -647,7 +643,7 @@ class AllCatchRoute implements Route {
           }
 
           logger.error(
-            "Proxy error '%s' from upstream uri '%s' at downstream host '%s' in %dms",
+            "Proxy error '%s' from downstream URI '%s' at upstream hostname '%s' in %dms",
             err.message,
             uri,
             hostname,
@@ -656,7 +652,7 @@ class AllCatchRoute implements Route {
           googleAnalytics.fireServerEventGA4(
             gaCategory,
             'ProxyErrorUnknown',
-            `Proxy error '${err.message}' from upstream '${uri}' at downstream host '${hostname}' in ${timing}ms`,
+            `Proxy error '${err.message}' from downstream URI '${uri}' at upstream hostname '${hostname}' in ${timing}ms`,
           );
 
           next(); // We didn't get a response so it'll just pass it onto upstream error handler
