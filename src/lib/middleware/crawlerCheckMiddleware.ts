@@ -21,8 +21,10 @@
     Written by: Nikita Petko
 */
 
+import '@lib/extensions/express/response';
+
 import logger from '@lib/utility/logger';
-import environment from '@lib/utility/environment';
+import environment from '@lib/environment';
 import webUtility from '@lib/utility/webUtility';
 
 import { NextFunction, Request, Response } from 'express';
@@ -46,18 +48,12 @@ class CrawlerCheckMiddleware {
         return;
       }
 
-      response
-        .status(403)
-        .header({
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          Connection: 'close',
-          'Content-Type': 'text/html',
-          Expires: '0',
-          Pragma: 'no-cache',
-        })
-        .send(
-          `<html><body><h1>403 Forbidden</h1><p>Crawlers are not allowed to access this site. Please use a browser instead.</p></body></html>`,
-        );
+      response.noCache();
+      response.contentType('text/html');
+      response.status(403);
+      response.send(
+        `<html><body><h1>403 Forbidden</h1><p>Crawlers are not allowed to access this site. Please use a browser instead.</p></body></html>`,
+      );
       return;
     }
 

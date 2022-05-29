@@ -24,10 +24,10 @@ import loadBalancerInfoResponder from '@lib/responders/loadBalancerInfoResponder
 
 import { NextFunction, Request, Response } from 'express';
 
-class LoadBalancerInfoMiddleware {
+export default class LoadBalancerInfoMiddleware {
   /**
    * Invokes the middleware.
-   * @param {Request} request The request object.
+   * @param {Request} _request The request object.
    * @param {Response} response The response object.
    * @param {NextFunction} next The next function to call.
    * @returns {void} Nothing.
@@ -38,5 +38,3 @@ class LoadBalancerInfoMiddleware {
     next();
   }
 }
-
-export = LoadBalancerInfoMiddleware;
