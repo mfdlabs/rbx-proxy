@@ -15,21 +15,18 @@
 */
 
 /*
-    File Name: crawlerCheckMiddleware.ts
-    Description: This handler will check if the request User-Agent is a crawler.
-                 Like CIDR check, you can make it abort the request if it is a crawler.
+    File Name: healthCheckMiddleware.ts
+    Description: A middleware that will check the health of the server.
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/response';
-
 import logger from '@lib/utility/logger';
 import environment from '@lib/environment';
-import webUtility from '@lib/utility/webUtility';
+import loadBalancerInfoResponder from '@lib/responders/loadBalancerInfoResponder';
 
 import { NextFunction, Request, Response } from 'express';
 
-class CrawlerCheckMiddleware {
+export default class HealthCheckMiddleware {
   /**
    * Invokes the middleware.
    * @param {Request} request The request object.
@@ -38,27 +35,14 @@ class CrawlerCheckMiddleware {
    * @returns {void} Nothing.
    */
   public static invoke(request: Request, response: Response, next: NextFunction): void {
-    if (!environment.shouldCheckCrawler) return next();
+    if (!environment.useHealthCheckMiddleware) return next();
 
-    if (webUtility.isCrawler(request.headers['user-agent'])) {
-      logger.log(`Crawler detected: '%s'`, request.headers['user-agent']);
+    if (request.originalUrl.toLowerCase() === environment.healthCheckPath) {
+      logger.information('Request is a health check request, responding with health check page');
 
-      if (environment.abortConnectionIfCrawler) {
-        request.socket.destroy();
-        return;
-      }
-
-      response.noCache();
-      response.contentType('text/html');
-      response.status(403);
-      response.send(
-        `<html><body><h1>403 Forbidden</h1><p>Crawlers are not allowed to access this site. Please use a browser instead.</p></body></html>`,
-      );
+      loadBalancerInfoResponder.invoke(response, true, true, true);
       return;
     }
-
     next();
   }
 }
-
-export = CrawlerCheckMiddleware;

@@ -15,21 +15,14 @@
 */
 
 /*
-    File Name: crawlerCheckMiddleware.ts
-    Description: This handler will check if the request User-Agent is a crawler.
-                 Like CIDR check, you can make it abort the request if it is a crawler.
+    File Name: overrideMiddleware.ts
+    Description: This is the first middleware in the chain. It overrides the response.end method so that it can send the response to the client with lowercase headers.
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/response';
-
-import logger from '@lib/utility/logger';
-import environment from '@lib/environment';
-import webUtility from '@lib/utility/webUtility';
-
 import { NextFunction, Request, Response } from 'express';
 
-class CrawlerCheckMiddleware {
+export default class OverrideMiddleware {
   /**
    * Invokes the middleware.
    * @param {Request} request The request object.
@@ -38,27 +31,31 @@ class CrawlerCheckMiddleware {
    * @returns {void} Nothing.
    */
   public static invoke(request: Request, response: Response, next: NextFunction): void {
-    if (!environment.shouldCheckCrawler) return next();
+    const oldEnd = response.end;
 
-    if (webUtility.isCrawler(request.headers['user-agent'])) {
-      logger.log(`Crawler detected: '%s'`, request.headers['user-agent']);
+    Object.defineProperty(response, 'end', {
+      writable: true,
+      value(this: Response, ...args: any[]) {
+        response.getHeaderNames().forEach((headerName: string) => {
+          const headerValue = response.getHeader(headerName);
+          response.removeHeader(headerName);
+          response.setHeader(headerName.toLowerCase(), headerValue);
+        });
 
-      if (environment.abortConnectionIfCrawler) {
-        request.socket.destroy();
-        return;
-      }
+        // Apply connection: close header if it was not set by the user.
+        if (!response.getHeader('connection')) {
+          response.setHeader('connection', 'close');
+        }
 
-      response.noCache();
-      response.contentType('text/html');
-      response.status(403);
-      response.send(
-        `<html><body><h1>403 Forbidden</h1><p>Crawlers are not allowed to access this site. Please use a browser instead.</p></body></html>`,
-      );
-      return;
-    }
+        response.setHeader('date', new Date().toUTCString());
+
+        // Clear request context.
+        request.context.clear();
+
+        oldEnd.apply(this, args);
+      },
+    });
 
     next();
   }
 }
-
-export = CrawlerCheckMiddleware;

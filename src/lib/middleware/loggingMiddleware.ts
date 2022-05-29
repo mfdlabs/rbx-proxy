@@ -20,14 +20,14 @@
     Written by: Nikita Petko
 */
 
+import '@lib/extensions/express/request';
+
 import logger from '@lib/utility/logger';
 
-import * as tls from 'tls';
-import * as net from 'net';
-import netHelper from '@mfdlabs/net';
+import net from '@mfdlabs/net';
 import { NextFunction, Request, Response } from 'express';
 
-class LoggingMiddleware {
+export default class LoggingMiddleware {
   /**
    * Invokes the middleware.
    * @param {Request} request The request object.
@@ -36,43 +36,21 @@ class LoggingMiddleware {
    * @returns {void} Nothing.
    */
   public static invoke(request: Request, _response: Response, next: NextFunction): void {
-    const localIp = LoggingMiddleware._getLocalIp(request);
-    const forwardedPort = request.headers['x-forwarded-port'] as string;
-    const port = forwardedPort ? parseInt(forwardedPort, 10) : LoggingMiddleware._getLocalPort(request);
-    const isVerifiedTlsSession = LoggingMiddleware._isVerifiedTlsSession(request);
+    const localIp = this._getLocalIp(request);
 
     logger.log(
-      `%s request on URI %s://%s:%d%s ('%s') from client '%s' (%s). TLS session: %s.`,
+      `%s request on URI %s://%s:%d%s ('%s') from client '%s' (%s).`,
       request.method.toUpperCase(),
       request.protocol,
       localIp,
-      port,
+      request.localPort,
       request.originalUrl,
       request.headers.host || 'No Host Header',
-      LoggingMiddleware._getTruncatedUserAgent(request.headers['user-agent']),
+      this._getTruncatedUserAgent(request.headers['user-agent']),
       request.ip,
-      request.protocol === 'https' ? (isVerifiedTlsSession ? 'verified' : 'unverified') : 'insecure',
     );
 
     next();
-  }
-
-  private static _getLocalPort(request: Request): number {
-    return LoggingMiddleware._getSocket(request).localPort;
-  }
-
-  private static _getSocket(request: Request): net.Socket | tls.TLSSocket {
-    // spdy does some weird stuff with the raw socket, as in it puts the actual TLSSocket in a nested property
-    return ((request.socket as any)?._spdyState?.parent as tls.TLSSocket) ?? request.socket;
-  }
-
-  private static _isVerifiedTlsSession(request: Request): boolean {
-    const socket = LoggingMiddleware._getSocket(request);
-
-    if (socket === undefined) return false;
-    if (!(socket instanceof tls.TLSSocket)) return false;
-
-    return socket.authorized;
   }
 
   private static _getTruncatedUserAgent(userAgent: string): string {
@@ -86,20 +64,18 @@ class LoggingMiddleware {
   }
 
   private static _getLocalIp(request: Request): string {
-    if (netHelper.isIPv4(request.ip)) {
-      if (netHelper.isIPv4Loopback(request.ip)) {
+    if (net.isIPv4(request.ip)) {
+      if (net.isIPv4Loopback(request.ip)) {
         return '127.0.0.1';
       } else {
-        return netHelper.getLocalIPv4();
+        return net.getLocalIPv4();
       }
     } else {
-      if (netHelper.isIPv6Loopback(request.ip)) {
+      if (net.isIPv6Loopback(request.ip)) {
         return '[::1]';
       } else {
-        return `[${netHelper.getLocalIPv6()}]`;
+        return `[${net.getLocalIPv6()}]`;
       }
     }
   }
 }
-
-export = LoggingMiddleware;

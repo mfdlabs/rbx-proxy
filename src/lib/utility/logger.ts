@@ -21,7 +21,7 @@
 */
 
 import webUtility from '@lib/utility/webUtility';
-import environment from '@lib/utility/environment';
+import environment from '@lib/environment';
 import { projectDirectoryName } from '@lib/directories';
 
 import * as fs from 'fs';

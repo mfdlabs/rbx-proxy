@@ -15,21 +15,22 @@
 */
 
 /*
-    File Name: crawlerCheckMiddleware.ts
-    Description: This handler will check if the request User-Agent is a crawler.
-                 Like CIDR check, you can make it abort the request if it is a crawler.
+    File Name: wanAddressApplicationMiddleware.ts
+    Description: A middleware that sets the WAN address of the request. The WAN address is only initialized once, but the property is applied to the request object every time the middleware is called.
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/response';
+import '@lib/extensions/express/request';
 
 import logger from '@lib/utility/logger';
 import environment from '@lib/environment';
-import webUtility from '@lib/utility/webUtility';
 
+import net from '@mfdlabs/net';
 import { NextFunction, Request, Response } from 'express';
 
-class CrawlerCheckMiddleware {
+let publicIp: string;
+
+export default class WanAddressApplicationMiddleware {
   /**
    * Invokes the middleware.
    * @param {Request} request The request object.
@@ -37,28 +38,25 @@ class CrawlerCheckMiddleware {
    * @param {NextFunction} next The next function to call.
    * @returns {void} Nothing.
    */
-  public static invoke(request: Request, response: Response, next: NextFunction): void {
-    if (!environment.shouldCheckCrawler) return next();
+  public static async invoke(request: Request, response: Response, next: NextFunction): Promise<void> {
+    if (publicIp === undefined) {
+      publicIp = await net.getPublicIP();
 
-    if (webUtility.isCrawler(request.headers['user-agent'])) {
-      logger.log(`Crawler detected: '%s'`, request.headers['user-agent']);
+      logger.information("Public IP Initialized as '%s'", publicIp);
 
-      if (environment.abortConnectionIfCrawler) {
-        request.socket.destroy();
-        return;
-      }
+      if (!environment.ga4DisableLoggingIPs)
+        /* This may be cause controversy */
+        request.fireEvent('PublicIPInitalized');
+    }
 
-      response.noCache();
-      response.contentType('text/html');
-      response.status(403);
-      response.send(
-        `<html><body><h1>403 Forbidden</h1><p>Crawlers are not allowed to access this site. Please use a browser instead.</p></body></html>`,
-      );
-      return;
+    if (!request.hasOwnProperty('publicIp')) {
+      Object.defineProperty(request, 'publicIp', {
+        configurable: false,
+        enumerable: true,
+        get: () => publicIp,
+      });
     }
 
     next();
   }
 }
-
-export = CrawlerCheckMiddleware;
