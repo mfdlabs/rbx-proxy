@@ -1,7 +1,0 @@
-version: '3'
-services:
-  lb:
-    build: .
-    ports:
-      - '80:80'
-      - '443:443'

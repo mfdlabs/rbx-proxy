@@ -21,7 +21,7 @@
 */
 
 import logger from '@lib/utility/logger';
-import environment from '@lib/utility/environment';
+import environment from '@lib/environment';
 
 export default function () {
   process.stdin.resume();

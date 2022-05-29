@@ -22,13 +22,15 @@
     Written by: Nikita Petko
 */
 
+import '@lib/extensions/express/response';
+
 import logger from '@lib/utility/logger';
-import environment from '@lib/utility/environment';
+import environment from '@lib/environment';
 
 import net from '@mfdlabs/net';
 import { NextFunction, Request, Response } from 'express';
 
-class CidrCheckMiddleware {
+export default class CidrCheckMiddleware {
   /**
    * Invokes the middleware.
    * @param {Request} request The request object.
@@ -53,18 +55,12 @@ class CidrCheckMiddleware {
         return;
       }
 
-      response
-        .status(403)
-        .header({
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          Connection: 'close',
-          'Content-Type': 'text/html',
-          Expires: '0',
-          Pragma: 'no-cache',
-        })
-        .send(
-          `<html><body><h1>403 Forbidden</h1><p>IP Address validation failed. Your IP address is not allowed to access this site.</p></body></html>`,
-        );
+      response.noCache();
+      response.contentType('text/html');
+      response.status(403);
+      response.send(
+        `<html><body><h1>403 Forbidden</h1><p>IP Address validation failed. Your IP address is not allowed to access this site.</p></body></html>`,
+      );
 
       return;
     }
@@ -72,5 +68,3 @@ class CidrCheckMiddleware {
     next();
   }
 }
-
-export = CidrCheckMiddleware;

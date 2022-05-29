@@ -15,21 +15,19 @@
 */
 
 /*
-    File Name: crawlerCheckMiddleware.ts
-    Description: This handler will check if the request User-Agent is a crawler.
-                 Like CIDR check, you can make it abort the request if it is a crawler.
+    File Name: notFoundMiddleware.ts
+    Description: Middleware to handle not found requests.
     Written by: Nikita Petko
 */
 
 import '@lib/extensions/express/response';
 
-import logger from '@lib/utility/logger';
-import environment from '@lib/environment';
-import webUtility from '@lib/utility/webUtility';
+import googleAnalytics from '@lib/utility/googleAnalytics';
 
+import htmlEncode from 'escape-html';
 import { NextFunction, Request, Response } from 'express';
 
-class CrawlerCheckMiddleware {
+export default class NotFoundMiddleware {
   /**
    * Invokes the middleware.
    * @param {Request} request The request object.
@@ -38,27 +36,18 @@ class CrawlerCheckMiddleware {
    * @returns {void} Nothing.
    */
   public static invoke(request: Request, response: Response, next: NextFunction): void {
-    if (!environment.shouldCheckCrawler) return next();
+    const encodedUri = htmlEncode(`${request.protocol}://${request.hostname}${request.originalUrl}`);
 
-    if (webUtility.isCrawler(request.headers['user-agent'])) {
-      logger.log(`Crawler detected: '%s'`, request.headers['user-agent']);
+    // Not found handler
+    // Shows a 404 page, but in the case of the "proxy" it will show 503
+    // No cache and close the connection
+    googleAnalytics.fireServerEventGA4('Server', 'NotFound', request.originalUrl);
 
-      if (environment.abortConnectionIfCrawler) {
-        request.socket.destroy();
-        return;
-      }
-
-      response.noCache();
-      response.contentType('text/html');
-      response.status(403);
-      response.send(
-        `<html><body><h1>403 Forbidden</h1><p>Crawlers are not allowed to access this site. Please use a browser instead.</p></body></html>`,
-      );
-      return;
-    }
-
-    next();
+    response.noCache();
+    response.contentType('text/html');
+    response.status(503);
+    response.send(
+      `<html><body><h1>503 Service Unavailable</h1><p>No downstream server for upstream URI: ${encodedUri}</p></body></html>`,
+    );
   }
 }
-
-export = CrawlerCheckMiddleware;

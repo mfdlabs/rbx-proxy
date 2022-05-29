@@ -58,8 +58,7 @@ googleAnalytics.initialize();
 
 import web from '@lib/setup';
 import logger from '@lib/utility/logger';
-import environment from '@lib/utility/environment';
-import { projectDirectoryName } from '@lib/directories';
+import environment from '@lib/environment';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Type Declarations
@@ -71,10 +70,23 @@ import startupOptions from '@lib/setup/options/startupOptions';
 // Middleware
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+import errorMiddleware from '@lib/middleware/errorMiddleware';
 import loggingMiddleware from '@lib/middleware/loggingMiddleware';
+import notFoundMiddleware from '@lib/middleware/notFoundMiddleware';
+import overrideMiddleware from '@lib/middleware/overrideMiddleware';
 import cidrCheckMiddleware from '@lib/middleware/cidrCheckMiddleware';
+import beginTimingMiddleware from '@lib/middleware/beginTimingMiddleware';
+import healthCheckMiddleware from '@lib/middleware/healthCheckMiddleware';
+import sphynxDomainMiddleware from '@lib/middleware/sphynxDomainMiddleware';
 import crawlerCheckMiddleware from '@lib/middleware/crawlerCheckMiddleware';
+import reverseProxyMiddleware from '@lib/middleware/reverseProxyMiddleware';
+import corsApplicationMiddleware from '@lib/middleware/corsApplicationMiddleware';
+import sendAxiosRequestMiddleware from '@lib/middleware/sendAxiosRequestMiddleware';
 import loadBalancerInfoMiddleware from '@lib/middleware/loadBalancerInfoMiddleware';
+import denyLoopbackAttackMiddleware from '@lib/middleware/denyLoopbackAttackMiddleware';
+import hostnameResolutionMiddleware from '@lib/middleware/hostnameResolutionMiddleware';
+import wanAddressApplicationMiddleware from '@lib/middleware/wanAddressApplicationMiddleware';
+import denyLocalAreaNetworkAccessMiddleware from '@lib/middleware/denyLocalAreaNetworkAccessMiddleware';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Third Party Declarations
@@ -82,8 +94,7 @@ import loadBalancerInfoMiddleware from '@lib/middleware/loadBalancerInfoMiddlewa
 
 import * as fs from 'fs';
 import * as path from 'path';
-import htmlEncode from 'escape-html';
-import express, { NextFunction, Request, Response } from 'express';
+import express from 'express';
 
 // RBXPRR-2 RBXPRR-3:
 // We want to try and not hard code these values.
@@ -91,154 +102,116 @@ import express, { NextFunction, Request, Response } from 'express';
 // and maybe the certificate stuff as well.
 const settings = {} as startupOptions;
 
-(async () => {
-  googleAnalytics.fireServerEventGA4('Server', 'Start');
+googleAnalytics.fireServerEventGA4('Server', 'Start');
 
-  const proxyServer = express();
+const proxyServer = express();
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Middleware
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Middleware
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  proxyServer.use(loggingMiddleware.invoke);
-  proxyServer.use(cidrCheckMiddleware.invoke);
-  proxyServer.use(crawlerCheckMiddleware.invoke);
-  proxyServer.use(loadBalancerInfoMiddleware.invoke);
+// Note: For middleware, please make it a lambda then invoke it, as this will make it so it doesn't capture
+// Express's function context and cause the `this` keyword to be either undefined or not have the correct
+// members.
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
+proxyServer.use((request, response, next) => overrideMiddleware.invoke(request, response, next));
+proxyServer.use((request, response, next) => reverseProxyMiddleware.invoke(request, response, next));
+proxyServer.use((request, response, next) => loggingMiddleware.invoke(request, response, next));
+proxyServer.use((request, response, next) => cidrCheckMiddleware.invoke(request, response, next));
+proxyServer.use((request, response, next) => crawlerCheckMiddleware.invoke(request, response, next));
+proxyServer.use((request, response, next) => loadBalancerInfoMiddleware.invoke(request, response, next));
+proxyServer.use((request, response, next) => healthCheckMiddleware.invoke(request, response, next));
+proxyServer.use((request, response, next) => beginTimingMiddleware.invoke(request, response, next));
+proxyServer.use((request, response, next) => wanAddressApplicationMiddleware.invoke(request, response, next));
+proxyServer.use((request, response, next) => hostnameResolutionMiddleware.invoke(request, response, next));
+proxyServer.use((request, response, next) => denyLocalAreaNetworkAccessMiddleware.invoke(request, response, next));
+proxyServer.use((request, response, next) => denyLoopbackAttackMiddleware.invoke(request, response, next));
+proxyServer.use((request, response, next) => corsApplicationMiddleware.invoke(request, response, next));
+proxyServer.use((request, response, next) => sphynxDomainMiddleware.invoke(request, response, next));
+proxyServer.use((request, response, next) => sendAxiosRequestMiddleware.invoke(request, response, next));
 
-  if (environment.logStartupInfo) web.overrideLoggers(logger.information, logger.warning, logger.debug, logger.error);
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  web.overrideRootProjectPath(path.join(projectDirectoryName, 'dist'));
-  web.overrideBaseRoutesPath('routes');
+if (environment.logStartupInfo) web.overrideLoggers(logger.information, logger.warning, logger.debug, logger.error);
 
-  web.configureServer({
-    allowRoutes: true,
-    app: proxyServer,
-    noETag: true,
-    noXPowerBy: true,
-    rawBufferRequest: true,
-    routeConfiguration: {
-      debugName: 'rbx-proxy.lb.vmminfra.net',
-      logSetup: true,
-      routesPath: web.getRoutesDirectory('proxy'),
-    },
-    routingOptions: {
-      caseSensitive: true, // We want to be case sensitive for our routes, so that /a and /A are different
-      strict: true, // We want /a and /a/ to be treated as different routes
-    },
-    trustProxy: false,
-  });
+web.configureServer({
+  app: proxyServer,
+  noETag: true,
+  noXPowerBy: true,
+  rawBufferRequest: true,
+  routingOptions: {
+    caseSensitive: true, // We want to be case sensitive for our routes, so that /a and /A are different
+    strict: true, // We want /a and /a/ to be treated as different routes
+  },
+  trustProxy: false,
+});
 
-  proxyServer.use((request, response) => {
-    const encodedUri = htmlEncode(`${request.protocol}://${request.hostname}${request.originalUrl}`);
+proxyServer.use((request, response, next) => notFoundMiddleware.invoke(request, response, next));
+proxyServer.use((error, request, response, next) => errorMiddleware.invoke(error, request, response, next));
 
-    // Not found handler
-    // Shows a 404 page, but in the case of the "proxy" it will show 503
-    // No cache and close the connection
-    googleAnalytics.fireServerEventGA4('Server', 'NotFound', request.url);
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Settings
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    response
-      .status(503)
-      .header({
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Connection: 'close',
-        Expires: '0',
-        Pragma: 'no-cache',
-      })
-      .send(
-        `<html><body><h1>503 Service Unavailable</h1><p>No downstream server for upstream URI: ${encodedUri}</p></body></html>`,
-      );
-  });
+if (environment.enableSecureServer) {
+  if (environment.enableTLSv2) settings.tlsV2 = true;
+  settings.tls = true;
+  settings.tlsPort = environment.securePort;
 
-  proxyServer.use((error: Error, request: Request, response: Response, _next: NextFunction) => {
-    // HTML encode the error stack
-    let errorStack = htmlEncode(error.stack);
-    const encodedUri = htmlEncode(`${request.protocol}://${request.hostname}${request.originalUrl}`);
-
-    // Transform the errorStack to correctly show spaces, tabs, and newlines
-    errorStack = errorStack.replace(/\n/g, '<br>').replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;').replace(/ /g, '&nbsp;');
-
-    // Log the error
-    googleAnalytics.fireServerEventGA4('Server', 'Error', error.stack);
-
-    response
-      .status(500)
-      .header({
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Connection: 'close',
-        Expires: '0',
-        Pragma: 'no-cache',
-      })
-      .send(
-        `<html><body><h1>500 Internal Server Error</h1><p>An error occurred when sending a request to the upstream URI: ${encodedUri}</p><p><b>${errorStack}</b></p></body></html>`,
-      );
-  });
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Settings
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  if (environment.enableSecureServer) {
-    if (environment.enableTLSv2) settings.tlsV2 = true;
-    settings.tls = true;
-    settings.tlsPort = environment.securePort;
-
-    if (!fs.existsSync(environment.sslBaseDirectory)) {
-      throw new Error(`The SSL base directory "${environment.sslBaseDirectory}" does not exist.`);
-    }
-
-    const fullyQualifiedCertificatePath = path.join(environment.sslBaseDirectory, environment.sslCertificateFileName);
-    const fullyQualifiedKeyPath = path.join(environment.sslBaseDirectory, environment.sslKeyFileName);
-
-    if (!fs.existsSync(fullyQualifiedCertificatePath)) {
-      throw new Error(`The SSL certificate file "${fullyQualifiedCertificatePath}" does not exist.`);
-    }
-
-    if (!fs.existsSync(fullyQualifiedKeyPath)) {
-      throw new Error(`The SSL key file "${fullyQualifiedKeyPath}" does not exist.`);
-    }
-
-    settings.baseTlsDirectory = environment.sslBaseDirectory;
-    settings.cert = environment.sslCertificateFileName;
-    settings.key = environment.sslKeyFileName;
-
-    if (environment.sslKeyPassphrase !== null) {
-      settings.passphrase = environment.sslKeyPassphrase;
-    }
-
-    if (environment.sslCertificateChainFileName !== null) {
-      const fullyQualifiedCertificateChainPath = path.join(
-        environment.sslBaseDirectory,
-        environment.sslCertificateChainFileName,
-      );
-
-      if (!fs.existsSync(fullyQualifiedCertificateChainPath)) {
-        throw new Error(`The SSL certificate chain file "${fullyQualifiedCertificateChainPath}" does not exist.`);
-      }
-
-      settings.chain = environment.sslCertificateChainFileName;
-    }
+  if (!fs.existsSync(environment.sslBaseDirectory)) {
+    throw new Error(`The SSL base directory "${environment.sslBaseDirectory}" does not exist.`);
   }
 
-  settings.insecure = true;
-  settings.insecurePort = environment.insecurePort;
+  const fullyQualifiedCertificatePath = path.join(environment.sslBaseDirectory, environment.sslCertificateFileName);
+  const fullyQualifiedKeyPath = path.join(environment.sslBaseDirectory, environment.sslKeyFileName);
 
-  settings.bind = environment.bindAddressIPv4;
+  if (!fs.existsSync(fullyQualifiedCertificatePath)) {
+    throw new Error(`The SSL certificate file "${fullyQualifiedCertificatePath}" does not exist.`);
+  }
 
+  if (!fs.existsSync(fullyQualifiedKeyPath)) {
+    throw new Error(`The SSL key file "${fullyQualifiedKeyPath}" does not exist.`);
+  }
+
+  settings.baseTlsDirectory = environment.sslBaseDirectory;
+  settings.cert = environment.sslCertificateFileName;
+  settings.key = environment.sslKeyFileName;
+
+  if (environment.sslKeyPassphrase !== null) {
+    settings.passphrase = environment.sslKeyPassphrase;
+  }
+
+  if (environment.sslCertificateChainFileName !== null) {
+    const fullyQualifiedCertificateChainPath = path.join(
+      environment.sslBaseDirectory,
+      environment.sslCertificateChainFileName,
+    );
+
+    if (!fs.existsSync(fullyQualifiedCertificateChainPath)) {
+      throw new Error(`The SSL certificate chain file "${fullyQualifiedCertificateChainPath}" does not exist.`);
+    }
+
+    settings.chain = environment.sslCertificateChainFileName;
+  }
+}
+
+settings.insecure = true;
+settings.insecurePort = environment.insecurePort;
+
+settings.bind = environment.bindAddressIPv4;
+
+web.startServer({
+  app: proxyServer,
+  ...settings,
+});
+
+// https://mfdlabs.atlassian.net/browse/RBXPRR-5476
+// This is a temporary fix for the issue where the server is not able to start when
+// running in a Docker container on IPv6.
+if (!environment.disableIPv6 && !environment.isDocker()) {
+  settings.bind = environment.bindAddressIPv6;
   web.startServer({
     app: proxyServer,
     ...settings,
   });
-
-  // https://mfdlabs.atlassian.net/browse/RBXPRR-5476
-  // This is a temporary fix for the issue where the server is not able to start when
-  // running in a Docker container on IPv6.
-  if (!environment.disableIPv6 && !environment.isDocker()) {
-    settings.bind = environment.bindAddressIPv6;
-    web.startServer({
-      app: proxyServer,
-      ...settings,
-    });
-  }
-})();
+}

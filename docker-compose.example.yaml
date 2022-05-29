@@ -12,6 +12,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-[*]
-indent_style = space
-indent_size = 2
+# A simple docker-compose script to run a single container
+
+version: '3'
+services:
+  lb:
+    build: .
+    ports:
+      - '80:80'
+      - '443:443'

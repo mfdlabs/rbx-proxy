@@ -46,12 +46,10 @@ Please note that as this project is under MFDLABS, branch naming rules for this 
 
 ### Commits
 
-The main ruling for commits is that they MUST be signed with a GPG key, if you made the change via github.com, they should be signed as default.
+The main ruling for commits is that they are preferred be signed with a GPG key, if you made the change via github.com, they should be signed as default.
 
 To learn how to do this, please follow this guide:
 - [Signing Commits](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits)
-
-The only exception to this rule is if you had originally made your commit via [GitHub Enterprise](https://git.vmminfra.dev/mfdlabs/rbx-proxy), as the signatures will never match.
 
 ### Reviews
 

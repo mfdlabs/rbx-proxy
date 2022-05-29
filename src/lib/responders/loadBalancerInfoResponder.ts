@@ -20,12 +20,41 @@
     Written by: Nikita Petko
 */
 
+import '@lib/extensions/express/response';
+
+import environment from '@lib/environment';
 import webUtility from '@lib/utility/webUtility';
 
+import * as util from 'util';
 import net from '@mfdlabs/net';
 import { Response } from 'express';
 
-class LoadBalancerInfoResponder {
+export default class LoadBalancerInfoResponder {
+  private static readonly _machineId = webUtility.getMachineID();
+  private static readonly _localIPv4 = net.getLocalIPv4();
+  private static readonly _localIPv6 = net.getLocalIPv6();
+
+  private static readonly _arcServerFormat = 'mfdlabs/arc-lb node %s (%s) (%s->%s@%s)';
+
+  private static _arcServerCached = undefined;
+
+  private static readonly _arcMachineInfoUrlFormat = util.format(environment.arcMachineInfoUrlFormat, this._machineId);
+
+  private static _getSharedServerName(): string {
+    if (this._arcServerCached === undefined) {
+      this._arcServerCached = util.format(
+        this._arcServerFormat,
+        process.version,
+        this._arcMachineInfoUrlFormat,
+        this._machineId,
+        this._localIPv4,
+        this._localIPv6,
+      );
+    }
+
+    return this._arcServerCached;
+  }
+
   /* This is really only used within ARC deploy scenarios. */
 
   /**
@@ -42,19 +71,12 @@ class LoadBalancerInfoResponder {
     cacheControlHeaders: boolean = true,
     closeResponse: boolean = false,
   ): void {
-    if (cacheControlHeaders)
-      response.header({
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Connection: 'close',
-        'Content-Type': 'text/plain',
-        Expires: '0',
-        Pragma: 'no-cache',
-      });
+    if (cacheControlHeaders) response.noCache();
+
+    response.contentType('text/plain');
 
     if (process.env.MFDLABS_ARC_SERVER) {
-      const serverResponse = `mfdlabs/arc-lb node ${
-        process.version
-      } (http://lb-services.ops-dev.vmminfra.dev/ui/machine/${webUtility.getMachineID()}/summary) (${webUtility.getMachineID()}->${net.getLocalIPv4()}@${net.getLocalIPv6()})`;
+      const serverResponse = this._getSharedServerName();
 
       response.header({
         Server: serverResponse,
@@ -85,5 +107,3 @@ class LoadBalancerInfoResponder {
     if (closeResponse) response.status(200).send();
   }
 }
-
-export = LoadBalancerInfoResponder;
