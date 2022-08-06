@@ -1,0 +1,90 @@
+name: Typescript Build
+
+on:
+  push:
+    branches:
+      - "master"
+    paths:
+      - "src/**"
+      - ".github/workflows/**"
+      - "package.json"
+      - "package-lock.json"
+  pull_request:
+    paths:
+      - "src/**"
+      - ".github/workflows/**"
+      - "package.json"
+      - "package-lock.json"
+
+jobs:
+  lint-ci:
+    name: TSLint CI
+    if: "!contains(toJSON(github.event.commits.*.message), '[SKIP BUILD]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "14.x"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint-ci
+
+  build-linux:
+    name: Build Linux
+    if: "!contains(toJSON(github.event.commits.*.message), '[SKIP BUILD]')"
+    needs: lint-ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository.
+        uses: actions/checkout@v2
+
+      - name: Setup the node js environment with version 16.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16.x
+
+      - name: Run the build-full script to update packages and build the project.
+        run: npm run build-full
+
+  build-windows:
+    name: Build Windows
+    if: "!contains(toJSON(github.event.commits.*.message), '[SKIP BUILD]')"
+    needs: lint-ci
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository.
+        uses: actions/checkout@v2
+
+      - name: Setup the node js environment with version 16.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16.x
+
+      - name: Run the build-full script to update packages and build the project.
+        run: npm run build-full
+
+  build-macos:
+    name: Build MacOS
+    if: "!contains(toJSON(github.event.commits.*.message), '[SKIP BUILD]')"
+    needs: lint-ci
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository.
+        uses: actions/checkout@v2
+
+      - name: Setup the node js environment with version 16.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16.x
+
+      - name: Run the build-full script to update packages and build the project.
+        run: npm run build-full
+
+  
