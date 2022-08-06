@@ -1,4 +1,4 @@
-name: Production Security Analysis Windows
+name: CodeQL Analysis
 
 on:
   push:
@@ -15,27 +15,20 @@ on:
       - ".github/workflows/**"
       - "package.json"
       - "package-lock.json"
-  schedule:
-    - cron: "00 13 1-31 1-12 1/2" # "At 13:00 on every day-of-month from 1 through 31 and on every 2nd day-of-week from Monday through Sunday in every month from January through December."
 
 jobs:
-  production-security-analysis-windows:
+  codeql:
     if: "!contains(toJSON(github.event.commits.*.message), '[SKIP ANALYSIS]')"
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        language: ["typescript"]
-        os: ["windows-2019", "windows-2022", "windows-latest"]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-        
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v2
         with:
-          languages: ${{ matrix.language }}
-          config-file: "./.github/configuration/security-analysis-shared-config.yml"
+          languages: "typescript"
+          config-file: "./.github/configuration/codeql-config.yml"
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v2
