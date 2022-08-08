@@ -15,6 +15,7 @@
 dist
 node_modules
 .env
+logs
 src/lib/directories.ts
 sphynx-rewrite.yml
 sphynx-rewrite.yaml
@@ -26,3 +27,4 @@ cors-rules.yml
 cors-rules.yaml
 cors-rules.json
 docker-compose.yaml
+nginx.conf
