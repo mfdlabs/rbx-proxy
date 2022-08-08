@@ -90,5 +90,4 @@ COPY . .
 # build app for production
 RUN npm run build-full
 
-EXPOSE 80 443
 CMD [ "npm", "start" ]

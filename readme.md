@@ -19,3 +19,10 @@ This proxy works within the hostname translation ruling. As in you can assign a 
 # Analytics Warning
 If you do happen to setup the environment variables for the GA4 client, every time you initialize the PublicIP within the proxy route it will log the IP address to the GA4 client with the name "PublicIPInitalized".
 If you wish for it not to log the IP address, you can set the environment variable "GA4_DISABLE_IP_LOGGING" to "true"
+
+# Docker compose
+
+For docker compose you will have your Docker on a machine that has it's containers use it's true host for NICs.
+An example of a system that doesn't do this is Docker for Windows with WSL2. You will need to use Docker for Windows with Hyper-V (TBD) or Docker for Linux.
+
+You will have to manually configure the docker-compose.yml file to have the correct subnet, gateway and NIC for your VLAN.
