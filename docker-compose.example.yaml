@@ -12,12 +12,93 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# A simple docker-compose script to run a single container
+# A simple docker-compose script to run a node of containers
 
-version: '3'
+version: '2.1'
 services:
-  lb:
+  # App contains an instance of each proxy service
+  app:
     build: .
-    ports:
-      - '80:80'
-      - '443:443'
+    volumes:
+      # Uncomment the following line to mount CORs, Sphynx Hardocode and Sphynx Rewrite
+      # rules to the container.
+      # - ./cors-rules.yml:/app/cors-rules.yml
+      # - ./sphynx-hardcode.yml:/app/sphynx-hardcode.yml
+      # - ./sphynx-rewrite.yml:/app/sphynx-rewrite.yml
+      - ./.env:/app/.env
+      - ./logs:/app/logs
+    networks:
+      - rbx-proxy-private-subnet
+    environment:
+      - BIND_ADDRESS_IPV4=0.0.0.0
+      - ENABLE_TLS_SERVER=false
+      - INSECURE_PORT=8080
+      - DISABLE_IPV6=true
+
+    # On deploy we will start 5 instances of the app
+    deploy:
+      mode: replicated
+      replicas: 5
+
+  # lb contains a service that will load balance the app instances
+  # and expose them on port 80 and 443
+  lb:
+    depends_on:
+      - app
+    image: nginx
+    volumes:
+      - ./nginx/nginx.example.conf:/etc/nginx/nginx.conf
+      - ./ssl/roblox-platform.crt:/etc/nginx/server.crt
+      - ./ssl/roblox-platform.unencrypted.key:/etc/nginx/server.key
+      - ./ssl/global-ca.crt:/etc/nginx/ca.crt
+    links:
+      - app:test
+    networks:
+      rbx-proxy-public-subnet:
+        # With the way MacVLAN and IPVLAN works, we need to specify the IP
+        # address of the interface that the load balancer will be using.
+        # You need to make sure that on your host, the IP address is not
+        # already in use.
+        ipv4_address: 172.16.0.2
+
+        # Uncomment the following line if you want to use an IPv6 address
+        # ipv6_address: 2001:db8:1::3
+      rbx-proxy-private-subnet:
+
+networks:
+  # The following network exposes the load balancer to the public
+  # and is used to route traffic to the app instances.
+  # By "public" we mean that the load balancer will be accessible
+  # from the host machine.
+  rbx-proxy-public-subnet:
+    driver: macvlan
+    
+    # Uncomment the following line if you want to use an IPv6 addressess
+    # use_ipv6: true
+
+    ipam:
+      config:
+        # You can configure your host network subnet here.
+        # This is an example if your network is 172.16.0.0/24
+        - subnet: 172.16.0.0/24
+          gateway: 172.16.0.1
+
+        # Uncomment the following line if you want to use an IPv6 address
+        # - subnet: 2001:db8:1::/64
+        #   gateway: 2001:db8:1::1
+
+      options:
+        # You can configure your host network interface here.
+        parent: eth0
+
+  # The following network is only used internally by the load balancer
+  # and the app instances.
+  rbx-proxy-private-subnet:
+    ipam:
+      config:
+        # Ideally you can configure whatever subnet you want here.
+        # You will have to update the nginx.conf file to match the subnet
+        # as for some reason it can only get DNS for the cluster and first
+        # node of the cluster.
+        - subnet: 172.16.1.0/24
+          gateway: 172.16.1.1
