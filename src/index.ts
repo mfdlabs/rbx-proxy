@@ -38,16 +38,16 @@ https://opsec.bk2time.vmminfra.dev/ui/projects/rkaev/roblox-proxy/summary?from=r
 
 // OPSEC625-NJS-001:
 // https://opsec.bk2time.vmminfra.dev/ui/projects/pyro-daktev/ops-625-njs-001/summary?from=seriez-excite.vmminfra.dev+comspec+cmd+/c+dir+/q
-import importHandler from './importHandler';
+import importHandler from './import_handler';
 importHandler();
 
-import stdinHandler from './stdinHandler';
+import stdinHandler from './stdin_handler';
 stdinHandler();
 
-import dotenvLoader from '@lib/environment/dotenvLoader';
+import dotenvLoader from '@lib/environment/dotenv_loader';
 dotenvLoader.reloadEnvironment();
 
-import googleAnalytics from '@lib/utility/googleAnalytics';
+import googleAnalytics from '@lib/utility/google_analytics';
 googleAnalytics.initialize();
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -64,28 +64,28 @@ import environment from '@lib/environment';
 // Type Declarations
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import startupOptions from '@lib/setup/options/startupOptions';
+import startupOptions from '@lib/setup/options/startup_options';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Middleware
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import errorMiddleware from '@lib/middleware/errorMiddleware';
-import loggingMiddleware from '@lib/middleware/loggingMiddleware';
-import overrideMiddleware from '@lib/middleware/overrideMiddleware';
-import cidrCheckMiddleware from '@lib/middleware/cidrCheckMiddleware';
-import beginTimingMiddleware from '@lib/middleware/beginTimingMiddleware';
-import healthCheckMiddleware from '@lib/middleware/healthCheckMiddleware';
-import sphynxDomainMiddleware from '@lib/middleware/sphynxDomainMiddleware';
-import crawlerCheckMiddleware from '@lib/middleware/crawlerCheckMiddleware';
-import reverseProxyMiddleware from '@lib/middleware/reverseProxyMiddleware';
-import corsApplicationMiddleware from '@lib/middleware/corsApplicationMiddleware';
-import sendAxiosRequestMiddleware from '@lib/middleware/sendAxiosRequestMiddleware';
-import loadBalancerInfoMiddleware from '@lib/middleware/loadBalancerInfoMiddleware';
-import denyLoopbackAttackMiddleware from '@lib/middleware/denyLoopbackAttackMiddleware';
-import hostnameResolutionMiddleware from '@lib/middleware/hostnameResolutionMiddleware';
-import wanAddressApplicationMiddleware from '@lib/middleware/wanAddressApplicationMiddleware';
-import denyLocalAreaNetworkAccessMiddleware from '@lib/middleware/denyLocalAreaNetworkAccessMiddleware';
+import errorMiddleware from '@lib/middleware/error_middleware';
+import loggingMiddleware from '@lib/middleware/logging_middleware';
+import overrideMiddleware from '@lib/middleware/override_middleware';
+import cidrCheckMiddleware from '@lib/middleware/cidr_check_middleware';
+import beginTimingMiddleware from '@lib/middleware/begin_timing_middleware';
+import healthCheckMiddleware from '@lib/middleware/health_check_middleware';
+import sphynxDomainMiddleware from '@lib/middleware/sphynx_domain_middleware';
+import crawlerCheckMiddleware from '@lib/middleware/crawler_check_middleware';
+import reverseProxyMiddleware from '@lib/middleware/reverse_proxy_middleware';
+import corsApplicationMiddleware from '@lib/middleware/cors_application_middleware';
+import sendAxiosRequestMiddleware from '@lib/middleware/send_axios_request_middleware';
+import loadBalancerInfoMiddleware from '@lib/middleware/load_balancer_info_middleware';
+import denyLoopbackAttackMiddleware from '@lib/middleware/deny_loopback_attack_middleware';
+import hostnameResolutionMiddleware from '@lib/middleware/hostname_resolution_middleware';
+import wanAddressApplicationMiddleware from '@lib/middleware/wan_address_application_middleware';
+import denyLocalAreaNetworkAccessMiddleware from '@lib/middleware/deny_local_area_network_access_middleware';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Third Party Declarations

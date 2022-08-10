@@ -26,15 +26,15 @@
 
 import route from './contracts/route';
 import walkers from './utility/walkers';
-import startupOptions from './options/startupOptions';
-import routeSetupOptions from './options/routeSetupOptions';
-import configurationOptions from './options/configurationOptions';
+import startupOptions from './options/startup_options';
+import routeSetupOptions from './options/route_setup_options';
+import configurationOptions from './options/configuration_options';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Type Imports
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import { RouteCallbackDelegate } from './customTypes/routeCallbackDelegate';
+import { RouteCallbackDelegate } from './custom_types/route_callback_delegate';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Third Party Imports

@@ -22,8 +22,8 @@
 
 import { LogLevel } from '@lib/logger';
 import { projectDirectoryName } from '@lib/directories';
-import dotenvLoader from '@lib/environment/dotenvLoader';
-import typeConverters from '@lib/environment/typeConverter';
+import dotenvLoader from '@lib/environment/dotenv_loader';
+import typeConverters from '@lib/environment/type_converter';
 
 import * as fs from 'fs';
 import * as path from 'path';

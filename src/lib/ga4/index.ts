@@ -25,11 +25,11 @@ import {
   ReservedUserPropertyName,
   reservedUserPropertyNames,
   validatorUrl,
-} from './ga4Constants';
+} from './ga4_constants';
 import converters from './helpers/converters';
-import ga4Event from './models/ga4Event';
-import ga4EventRequest from './models/ga4EventRequest';
-import ga4ValidationMessage from './models/ga4ValidationMessage';
+import ga4Event from './models/ga4_event';
+import ga4EventRequest from './models/ga4_event_request';
+import ga4ValidationMessage from './models/ga4_validation_message';
 
 import axios from 'axios';
 
