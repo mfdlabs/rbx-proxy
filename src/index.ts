@@ -36,13 +36,8 @@ https://opsec.bk2time.vmminfra.dev/ui/projects/rkaev/roblox-proxy/summary?from=r
 // Top Level Declarations
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// OPSEC625-NJS-001:
-// https://opsec.bk2time.vmminfra.dev/ui/projects/pyro-daktev/ops-625-njs-001/summary?from=seriez-excite.vmminfra.dev+comspec+cmd+/c+dir+/q
-import importHandler from './import_handler';
-importHandler();
-
-import stdinHandler from './stdin_handler';
-stdinHandler();
+import './import_handler';
+import './stdin_handler';
 
 import dotenvLoader from '@lib/environment/dotenv_loader';
 dotenvLoader.reloadEnvironment();
