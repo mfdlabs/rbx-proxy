@@ -29,7 +29,7 @@ import * as dotenv from 'dotenv';
 /**
  * A simple helper for loading .env files via dotenv.
  */
-abstract class DotEnvLoader {
+export default abstract class DotEnvLoader {
   private static _dotEnvFilePath: string = path.join(projectDirectoryName, '.env');
 
   /**
@@ -49,5 +49,3 @@ abstract class DotEnvLoader {
     }
   }
 }
-
-export = DotEnvLoader;

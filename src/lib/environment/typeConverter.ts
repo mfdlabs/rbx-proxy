@@ -23,7 +23,7 @@
 /**
  * A simple helper that converts the given value to the given type.
  */
-abstract class TypeConverters {
+export default abstract class TypeConverters {
   /**
    * Converts the given value to a boolean.
    *
@@ -61,5 +61,3 @@ abstract class TypeConverters {
     }
   }
 }
-
-export = TypeConverters;

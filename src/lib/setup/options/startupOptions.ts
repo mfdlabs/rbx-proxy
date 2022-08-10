@@ -25,7 +25,7 @@ import * as express from 'express';
 /**
  * Represents the options for the startup process.
  */
-interface StartupOptions {
+export default interface StartupOptions {
   /**
    * The Express application to configure.
    */
@@ -119,5 +119,3 @@ interface StartupOptions {
    */
   baseTlsDirectory?: string;
 }
-
-export = StartupOptions;

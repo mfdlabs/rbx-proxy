@@ -27,7 +27,7 @@ import * as express from 'express';
 /**
  * Represents the configuration options for the application.
  */
-interface ConfigurationOptions {
+export default interface ConfigurationOptions {
   /**
    * The Express application to configure.
    */
@@ -68,5 +68,3 @@ interface ConfigurationOptions {
    */
   rawBufferRequest?: boolean;
 }
-
-export = ConfigurationOptions;

@@ -37,7 +37,7 @@ const crawlerCheckLogger = new logger(
   environment.loggerCutPrefix,
 );
 
-class CrawlerCheckMiddleware {
+export default class CrawlerCheckMiddleware {
   /**
    * Invokes the middleware.
    * @param {Request} request The request object.
@@ -68,5 +68,3 @@ class CrawlerCheckMiddleware {
     next();
   }
 }
-
-export = CrawlerCheckMiddleware;

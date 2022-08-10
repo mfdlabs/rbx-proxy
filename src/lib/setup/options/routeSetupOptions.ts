@@ -23,7 +23,7 @@
 /**
  * Represents the options for the file router.
  */
-interface RouteSetupOptions {
+export default interface RouteSetupOptions {
   /**
    * The root directory to start looking for files.
    */
@@ -39,5 +39,3 @@ interface RouteSetupOptions {
    */
   debugName?: string;
 }
-
-export = RouteSetupOptions;

@@ -19,7 +19,7 @@
  * https://developers.google.com/analytics/devguides/collection/protocol/v1/reference#event
  * @internal This class is not intended for use by application developers.
  */
-class GA4Event {
+export default class GA4Event {
   /**
    * **Required**. The name for the event.
    * See the [events](https://developers.google.com/analytics/devguides/collection/protocol/ga4/reference/events) reference for all options.
@@ -32,5 +32,3 @@ class GA4Event {
    */
   public params: Map<string, string>;
 }
-
-export = GA4Event;
