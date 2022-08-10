@@ -23,12 +23,20 @@
 import '@lib/extensions/express/request';
 import '@lib/extensions/express/response';
 
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
 import environment from '@lib/environment';
 
 import net from '@mfdlabs/net';
 import htmlEncode from 'escape-html';
 import { NextFunction, Request, Response } from 'express';
+
+const denyLocalAreaNetworkAccessLogger = new logger(
+  'deny-local-area-network-access-middleware',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 export default class DenyLocalAreaNetworkAccessMiddleware {
   /**
@@ -68,7 +76,7 @@ export default class DenyLocalAreaNetworkAccessMiddleware {
     request: Request,
     response: Response,
   ): void {
-    logger.warning("Request to '%s' or '%s' is from a LAN, responding with LAN access error", hostname, resolvedAddres);
+    denyLocalAreaNetworkAccessLogger.warning("Request to '%s' or '%s' is from a LAN, responding with LAN access error", hostname, resolvedAddres);
     request.fireEvent('localAreaNetworkAccessDenied');
 
     let message = '';

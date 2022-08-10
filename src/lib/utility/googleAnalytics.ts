@@ -21,10 +21,18 @@
 */
 
 import ga4 from '@lib/ga4';
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
 import environment from '@lib/environment';
 
 import net from '@mfdlabs/net';
+
+const ga4logger = new logger(
+  'ga4',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 /**
  * A wrapper class for the GA4 client.
@@ -43,7 +51,9 @@ abstract class GoogleAnalytics {
       environment.ga4APISecret &&
       environment.ga4APISecret.length > 0
     ) {
-      if (environment.ga4EnableLogging) ga4.overrideLoggers(logger.information, logger.error);
+      if (environment.ga4EnableLogging) {
+        ga4.overrideLoggers(ga4logger.information.bind(ga4logger), ga4logger.error.bind(ga4logger));
+      }
 
       ga4.initialize(environment.ga4MeasurementID, environment.ga4APISecret, environment.ga4EnableValidation);
       this._isInitialized = true;

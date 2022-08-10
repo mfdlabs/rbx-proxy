@@ -22,11 +22,19 @@
 
 import '@lib/extensions/express/request';
 
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
 import environment from '@lib/environment';
 import corsWriter from '@lib/proxy/corsWriter';
 
 import { NextFunction, Request, Response } from 'express';
+
+const corsApplicationMiddlewareLogger = new logger(
+  'cors-application-middleware',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 export default class CorsApplicationMiddleware {
   /**
@@ -46,7 +54,10 @@ export default class CorsApplicationMiddleware {
     request.context.set('allowCorsHeaderOverwrite', true);
 
     if (origin || environment.corsApplyHeadersRegardlessOfOriginHeader) {
-      logger.information("Try apply CORs headers to the response with origin '%s'.", origin || '<none>');
+      corsApplicationMiddlewareLogger.information(
+        "Try apply CORs headers to the response with origin '%s'.",
+        origin || '<none>',
+      );
       request.fireEvent('ApplyCorsHeaders', origin || '<none>');
 
       request.context.set('allowCorsHeaderOverwrite', this._applyCorsHeaders(origin, request, response));
