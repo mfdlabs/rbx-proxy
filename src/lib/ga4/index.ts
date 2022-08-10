@@ -55,8 +55,8 @@ abstract class GA4 {
   // The error logger function.
   private static _logError: (message: string, ...args: any[]) => void;
 
-  private static blockUntilTruthy(value: boolean, timeout: number, message: string) {
-    this._logInfo?.call(this, 'GA4: Blocking until %s is true.', message);
+  private static _blockUntilTruthy(value: boolean, timeout: number, message: string) {
+    this._logInfo?.call(this, "GA4: Blocking until '%s' is true.", message);
 
     return new Promise<void>((resolve, reject) => {
       const interval = setInterval(() => {
@@ -73,44 +73,49 @@ abstract class GA4 {
     });
   }
 
-  private static async validateEventServerSide(rawEvent: object) {
+  private static async _validateEventServerSide(rawEvent: object) {
     if (!this._serverSideValidation) return true;
 
-    this._logInfo?.call(this, 'GA4: Validating event.');
+    this._logInfo?.call(this, 'GA4: Validating event via validator server (%s).', validatorUrl);
 
     const url =
       validatorUrl + '?measurement_id=' + encodeURI(this._metricsId) + '&api_secret=' + encodeURI(this._apiSecret);
 
-    const response = await axios.post(url, rawEvent, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    try {
+      const response = await axios.post(url, rawEvent, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-    const validationMessages = response?.data?.validationMessages as ga4ValidationMessage[];
+      const validationMessages = response?.data?.validationMessages as ga4ValidationMessage[];
 
-    if (validationMessages) {
-      if (validationMessages.length === 0) return true;
+      if (validationMessages) {
+        if (validationMessages.length === 0) return true;
 
-      let message = '';
-      for (const validationMessage of validationMessages) {
-        message +=
-          validationMessage.validationCode +
-          '(' +
-          validationMessage.fieldPath +
-          '): ' +
-          validationMessage.description +
-          '\n';
+        let message = '';
+        for (const validationMessage of validationMessages) {
+          message +=
+            validationMessage.validationCode +
+            '(' +
+            validationMessage.fieldPath +
+            '): ' +
+            validationMessage.description +
+            '\n';
+        }
+
+        this._logError?.call(this, 'GA4: Event validation failed.\n%s', message);
+        return false;
       }
-
-      this._logError?.call(this, 'GA4: Event validation failed.\n%s', message);
+    } catch (error) {
+      this._logError?.call(this, 'GA4: Event validation failed.\n%s', error);
       return false;
     }
 
     return true;
   }
 
-  private static validateEvent(event: ga4EventRequest) {
+  private static _validateEvent(event: ga4EventRequest) {
     const eventNames = event.events.filter((e) => reservedEventNames.includes(e.name as ReservedEventName));
 
     if (eventNames.length > 0) {
@@ -184,7 +189,7 @@ abstract class GA4 {
     return true;
   }
 
-  private static async sendInternal(request: ga4EventRequest) {
+  private static async _sendInternal(request: ga4EventRequest) {
     if (!this._initialized) return;
 
     this._logInfo?.call(this, 'GA4: Sending event to Google Analytics.');
@@ -195,7 +200,7 @@ abstract class GA4 {
     // convert each key to snake case
     const snakeCaseRequest = {};
     for (const key of Object.keys(request)) {
-      this._logInfo?.call(this, 'GA4: Converting key %s to snake case.', key);
+      this._logInfo?.call(this, 'GA4: Converting key %s to snake case.', key || '<empty>');
       snakeCaseRequest[converters.toSnakeCase(key)] = request[key];
     }
 
@@ -205,27 +210,31 @@ abstract class GA4 {
       const event = events[i];
       const snakeCaseEvent = {};
       for (const key of Object.keys(event)) {
-        this._logInfo?.call(this, 'GA4: Converting key %s to snake case.', key);
+        this._logInfo?.call(this, 'GA4: Converting key %s to snake case.', key || '<empty>');
         snakeCaseEvent[converters.toSnakeCase(key)] = event[key];
       }
       events[i] = snakeCaseEvent as ga4Event;
     }
 
-    if (!this.validateEvent(request)) return;
-    if (!(await this.validateEventServerSide(snakeCaseRequest))) return;
+    if (!this._validateEvent(request)) return;
+    if (!(await this._validateEventServerSide(snakeCaseRequest))) return;
 
-    const response = await axios.post(url, snakeCaseRequest, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    try {
+      const response = await axios.post(url, snakeCaseRequest, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-    if (response.status !== 204) {
-      this._logError?.call(this, 'GA4: Unknown error: %s', response.data);
-      return;
+      if (response.status !== 204) {
+        this._logError?.call(this, 'GA4: Unknown error: %s', response.data);
+        return;
+      }
+
+      this._logInfo?.call(this, 'GA4: Event sent to Google Analytics.');
+    } catch (ex) {
+      this._logError?.call(this, 'GA4: Unknown error sending request: %s', ex);
     }
-
-    this._logInfo?.call(this, 'GA4: Event sent to Google Analytics.');
   }
 
   /**
@@ -279,7 +288,7 @@ abstract class GA4 {
     params?: object,
     properties?: object,
   ): Promise<void> {
-    await this.blockUntilTruthy(this._initialized, 1000, 'GA4: Client is initialized.').catch((e) =>
+    await this._blockUntilTruthy(this._initialized, 1000, 'GA4: Client is initialized.').catch((e) =>
       this._logError?.call(this, e),
     );
 
@@ -309,23 +318,23 @@ abstract class GA4 {
     const snakeCaseParams = {};
 
     for (const key of Object.keys(properties)) {
-      this._logInfo?.call(this, 'GA4: Converting key %s to snake case.', key);
+      this._logInfo?.call(this, 'GA4: Converting key %s to snake case.', key || '<empty>');
       snakeCaseProperties[converters.toSnakeCase(key)] = properties[key];
     }
 
     for (const key of Object.keys(params)) {
-      this._logInfo?.call(this, 'GA4: Converting key %s to snake case.', key);
+      this._logInfo?.call(this, 'GA4: Converting key %s to snake case.', key || '<empty>');
       snakeCaseParams[converters.toSnakeCase(key)] = params[key];
     }
 
     // Ensure values are strings
     for (const key of Object.keys(snakeCaseProperties)) {
-      this._logInfo?.call(this, 'GA4: Converting value %s to string.', snakeCaseProperties[key]);
+      this._logInfo?.call(this, 'GA4: Converting value %s to string.', snakeCaseProperties[key] || '<empty>');
       snakeCaseProperties[key] = snakeCaseProperties[key].toString();
     }
 
     for (const key of Object.keys(snakeCaseParams)) {
-      this._logInfo?.call(this, 'GA4: Converting value %s to string.', snakeCaseParams[key]);
+      this._logInfo?.call(this, 'GA4: Converting value %s to string.', snakeCaseParams[key] || '<empty>');
       snakeCaseParams[key] = snakeCaseParams[key].toString();
     }
 
@@ -337,7 +346,7 @@ abstract class GA4 {
       params: snakeCaseParams as Map<string, string>,
     });
 
-    await this.sendInternal(request);
+    await this._sendInternal(request);
   }
 }
 
