@@ -40,7 +40,7 @@ declare global {
        * @returns {net.Socket | tls.TLSSocket} The raw socket of the request.
        * @memberof Request
        */
-       getSocket(): net.Socket | tls.TLSSocket;
+      getSocket(): net.Socket | tls.TLSSocket;
 
       /**
        * A map of request context.
@@ -69,7 +69,7 @@ declare global {
 
       /**
        * The real IP of the request.
-       * 
+       *
        * @type {string}
        * @memberof Request
        */
