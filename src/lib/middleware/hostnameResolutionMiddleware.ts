@@ -23,12 +23,20 @@
 import '@lib/extensions/express/request';
 import '@lib/extensions/express/response';
 
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
 import environment from '@lib/environment';
 
 import net from '@mfdlabs/net';
 import htmlEncode from 'escape-html';
 import { NextFunction, Request, Response } from 'express';
+
+const hostnameResolutionLogger = new logger(
+  'hostname-resolution-middleware',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 export default class HostnameResolutionMiddleware {
   /**
@@ -57,7 +65,7 @@ export default class HostnameResolutionMiddleware {
 
     const resolvedHostname = await net.resolveHostname(hostname);
 
-    logger.debug('Resolved hostname for \'%s\' to \'%s\'.', hostname, resolvedHostname || '<unknown>');
+    hostnameResolutionLogger.debug('Resolved hostname for \'%s\' to \'%s\'.', hostname, resolvedHostname || '<unknown>');
 
     if (typeof resolvedHostname !== 'string' || this._notTruthy(resolvedHostname)) {
       this._handleNxDomain(hostname, request, response);
@@ -80,7 +88,7 @@ export default class HostnameResolutionMiddleware {
   }
 
   private static _handleNxDomain(hostname: string, request: Request, response: Response) {
-    logger.warning("Resolved host for '%s' is undefined or null, responding with invalid hostname error", hostname);
+    hostnameResolutionLogger.warning("Resolved host for '%s' is undefined or null, responding with invalid hostname error", hostname);
     request.fireEvent('NXDomain');
 
     response.status(503);
@@ -113,7 +121,7 @@ export default class HostnameResolutionMiddleware {
   }
 
   private static _handleInvalidHostHeader(request: Request, response: Response) {
-    logger.warning('Request had no host header present, responding with a 400.');
+    hostnameResolutionLogger.warning('Request had no host header present, responding with a 400.');
     request.fireEvent('InvalidHostname');
 
     response.status(400);

@@ -20,11 +20,19 @@
     Written by: Nikita Petko
 */
 
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
 import environment from '@lib/environment';
 import loadBalancerInfoResponder from '@lib/responders/loadBalancerInfoResponder';
 
 import { NextFunction, Request, Response } from 'express';
+
+const healthCheckLogger = new logger(
+  'health-check-middleware',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 export default class HealthCheckMiddleware {
   /**
@@ -38,7 +46,7 @@ export default class HealthCheckMiddleware {
     if (!environment.useHealthCheckMiddleware) return next();
 
     if (request.originalUrl.toLowerCase() === environment.healthCheckPath) {
-      logger.information('Request is a health check request, responding with health check page');
+      healthCheckLogger.information('Request is a health check request, responding with health check page');
 
       loadBalancerInfoResponder.invoke(response, true, true, true);
       return;

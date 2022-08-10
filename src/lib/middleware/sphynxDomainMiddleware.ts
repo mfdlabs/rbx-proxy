@@ -22,11 +22,19 @@
 
 import '@lib/extensions/express/request';
 
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
 import environment from '@lib/environment';
 import sphynxServiceRewriteReader from '@lib/proxy/sphynxServiceRewriteReader';
 
 import { NextFunction, Request, Response } from 'express';
+
+const sphynxDomainLogger = new logger(
+  'sphynx-domain-middleware',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 export default class SphynxDomainMiddleware {
   /**
@@ -40,7 +48,7 @@ export default class SphynxDomainMiddleware {
     const hostname = request.context.get('hostname');
 
     if (hostname === environment.sphynxDomain) {
-      logger.information(
+      sphynxDomainLogger.information(
         "Request domain is Sphynx's domain. Trying to find hardcoded response or service name rewrite.",
       );
       request.fireEvent('SphynxRequest');
@@ -49,7 +57,7 @@ export default class SphynxDomainMiddleware {
       const hardcodedResponse = sphynxServiceRewriteReader.getHardcodedResponse(request.method, request.originalUrl);
 
       if (hardcodedResponse) {
-        logger.information("Found hardcoded response on path '%s', returning it.", request.originalUrl);
+        sphynxDomainLogger.information("Found hardcoded response on path '%s', returning it.", request.originalUrl);
         request.fireEvent('SphynxResponse');
 
         const body =
@@ -68,7 +76,7 @@ export default class SphynxDomainMiddleware {
         return;
       }
 
-      logger.information('No hardcoded response found, try translate service name.');
+      sphynxDomainLogger.information('No hardcoded response found, try translate service name.');
       request.fireEvent('SphynxServiceNameTranslation');
 
       request.originalUrl = sphynxServiceRewriteReader.transformUrl(request.originalUrl);

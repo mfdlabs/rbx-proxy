@@ -24,11 +24,19 @@
 
 import '@lib/extensions/express/response';
 
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
 import environment from '@lib/environment';
 
 import net from '@mfdlabs/net';
 import { NextFunction, Request, Response } from 'express';
+
+const cidrCheckLogger = new logger(
+  'cidr-check-middleware',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 export default class CidrCheckMiddleware {
   /**
@@ -48,7 +56,7 @@ export default class CidrCheckMiddleware {
       !net.isIPv4InCidrRangeList(request.ip, allowedIPv4Cidrs) &&
       !net.isIPv6InCidrRangeList(request.ip, allowedIPv6Cidrs)
     ) {
-      logger.log(`IP '%s' is not in allowed CIDR list`, request.ip);
+      cidrCheckLogger.log(`IP '%s' is not in allowed CIDR list`, request.ip);
 
       if (environment.abortConnectionIfInvalidIP) {
         request.socket.destroy();

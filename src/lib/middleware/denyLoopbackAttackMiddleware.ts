@@ -23,11 +23,20 @@
 import '@lib/extensions/express/request';
 import '@lib/extensions/express/response';
 
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
+import environment from '@lib/environment';
 
 import net from '@mfdlabs/net';
 import htmlEncode from 'escape-html';
 import { NextFunction, Request, Response } from 'express';
+
+const denyLoopbackAttackLogger = new logger(
+  'deny-loopback-attack-middleware',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 export default class DenyLoopbackAttackMiddleware {
   /**
@@ -62,7 +71,7 @@ export default class DenyLoopbackAttackMiddleware {
     request: Request,
     response: Response,
   ): void {
-    logger.warning("Request to '%s' or '%s' is a loopback, responding with loopback error", hostname, resolvedAddress);
+    denyLoopbackAttackLogger.warning("Request to '%s' or '%s' is a loopback, responding with loopback error", hostname, resolvedAddress);
     request.fireEvent('LoopbackAttack');
 
     const encodedClientIp = htmlEncode(request.ip);

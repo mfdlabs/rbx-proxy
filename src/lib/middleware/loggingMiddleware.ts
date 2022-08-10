@@ -22,10 +22,19 @@
 
 import '@lib/extensions/express/request';
 
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
+import environment from '@lib/environment';
 
 import net from '@mfdlabs/net';
 import { NextFunction, Request, Response } from 'express';
+
+const loggingMiddlewareLogger = new logger(
+  'logging-middleware',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 export default class LoggingMiddleware {
   /**
@@ -38,7 +47,7 @@ export default class LoggingMiddleware {
   public static invoke(request: Request, _response: Response, next: NextFunction): void {
     const localIp = this._getLocalIp(request);
 
-    logger.log(
+    loggingMiddlewareLogger.log(
       `%s request on URI %s://%s:%d%s ('%s') from client '%s' (%s).`,
       request.method.toUpperCase(),
       request.protocol,
