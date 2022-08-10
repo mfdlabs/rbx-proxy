@@ -20,7 +20,7 @@ import GA4Event from './ga4Event';
  * This class is a wrapper for event information. It is only ingested by the Google Analytics client.
  * @internal This class is not intended for use by application developers.
  */
-class GA4EventRequest {
+export default class GA4EventRequest {
   /**
    * Required.
    * Uniquely identifies a user instance of a web client.
@@ -71,5 +71,3 @@ class GA4EventRequest {
    */
   public events: GA4Event[] = [];
 }
-
-export = GA4EventRequest;

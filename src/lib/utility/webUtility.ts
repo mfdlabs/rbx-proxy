@@ -25,7 +25,7 @@ import * as os from 'os';
 /**
  * A lot of useful functions for working with networks, such as getting the external IP address, gateway, IP conversions, etc.
  */
-abstract class WebUtility {
+export default abstract class WebUtility {
   /**
    * A regex to match the request User-Agent as a potential bot.
    */
@@ -61,5 +61,3 @@ abstract class WebUtility {
     return this._crawlerRegex.test(userAgent);
   }
 }
-
-export = WebUtility;

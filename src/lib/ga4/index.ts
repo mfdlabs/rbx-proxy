@@ -36,7 +36,7 @@ import axios from 'axios';
 /**
  * This represents the new client for Google Analytics v4.00.
  */
-abstract class GA4 {
+export default abstract class GA4 {
   // Determines if the GA client is initialized.
   private static _initialized: boolean = false;
 
@@ -349,5 +349,3 @@ abstract class GA4 {
     await this._sendInternal(request);
   }
 }
-
-export = GA4;

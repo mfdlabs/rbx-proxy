@@ -35,7 +35,7 @@ interface SphynxHardcodeRewrite {
   statusCode: number;
 }
 
-abstract class SphynxServiceRewriteReader {
+export default abstract class SphynxServiceRewriteReader {
   private static _initialized: boolean = false;
 
   private static _rewriteRules: { [key: string]: string } = {};
@@ -189,5 +189,3 @@ abstract class SphynxServiceRewriteReader {
     return rule;
   }
 }
-
-export = SphynxServiceRewriteReader;

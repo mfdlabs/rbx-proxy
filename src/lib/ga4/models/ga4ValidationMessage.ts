@@ -19,7 +19,7 @@
  *
  * @internal This class is not intended for use by application developers.
  */
-class GA4ValidationMessage {
+export default class GA4ValidationMessage {
   /**
    * Where the invalid data was found.
    */
@@ -35,5 +35,3 @@ class GA4ValidationMessage {
    */
   public validationCode: string;
 }
-
-export = GA4ValidationMessage;

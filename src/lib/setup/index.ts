@@ -54,7 +54,7 @@ import * as bodyParser from 'body-parser';
  *
  * This is abstract so that it can't be instantiated.
  */
-abstract class WebHelper {
+export default abstract class WebHelper {
   private static _baseRoutesPath: string = 'Routes';
   private static _rootProjectPath: string = __dirname;
 
@@ -477,5 +477,3 @@ abstract class WebHelper {
     if (options.logSetup) this._logInfo?.call(this, `The site '%s' has %d route(s)`, options.debugName, files.length);
   }
 }
-
-export = WebHelper;
