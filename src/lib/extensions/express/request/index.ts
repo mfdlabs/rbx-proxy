@@ -23,8 +23,8 @@
 export {};
 
 import environment from '@lib/environment';
-import webUtility from '@lib/utility/webUtility';
-import googleAnalytics from '@lib/utility/googleAnalytics';
+import webUtility from '@lib/utility/web_utility';
+import googleAnalytics from '@lib/utility/google_analytics';
 
 import * as tls from 'tls';
 import * as express from 'express';
