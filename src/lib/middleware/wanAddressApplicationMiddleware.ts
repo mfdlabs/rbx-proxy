@@ -22,11 +22,19 @@
 
 import '@lib/extensions/express/request';
 
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
 import environment from '@lib/environment';
 
 import net from '@mfdlabs/net';
 import { NextFunction, Request, Response } from 'express';
+
+const wanAddressApplicationLogger = new logger(
+  'wan-address-application-middleware',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 let publicIp: string;
 
@@ -42,7 +50,7 @@ export default class WanAddressApplicationMiddleware {
     if (publicIp === undefined) {
       publicIp = await net.getPublicIP();
 
-      logger.information("Public IP Initialized as '%s'", publicIp);
+      wanAddressApplicationLogger.information("Public IP Initialized as '%s'", publicIp);
 
       if (!environment.ga4DisableLoggingIPs)
         /* This may be cause controversy */

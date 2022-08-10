@@ -23,11 +23,19 @@
 
 import '@lib/extensions/express/response';
 
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
 import environment from '@lib/environment';
 import webUtility from '@lib/utility/webUtility';
 
 import { NextFunction, Request, Response } from 'express';
+
+const crawlerCheckLogger = new logger(
+  'crawler-check-middleware',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 class CrawlerCheckMiddleware {
   /**
@@ -41,7 +49,7 @@ class CrawlerCheckMiddleware {
     if (!environment.shouldCheckCrawler) return next();
 
     if (webUtility.isCrawler(request.headers['user-agent'])) {
-      logger.log(`Crawler detected: '%s'`, request.headers['user-agent']);
+      crawlerCheckLogger.log(`Crawler detected: '%s'`, request.headers['user-agent']);
 
       if (environment.abortConnectionIfCrawler) {
         request.socket.destroy();
