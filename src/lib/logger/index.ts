@@ -682,7 +682,7 @@ export default class Logger {
   /**
    * Gets the log level of the logger.
    * @returns {LogLevel} - The log level of the logger.
-   * @note The log level is one of the following: 'none', 'error', 'warning', 'info', 'debug', 'verbose'.
+   * @note The log level is one of the following: none, error, warning, info, debug, trace.
    */
   public get logLevel(): LogLevel {
     return this._logLevel;
@@ -737,10 +737,10 @@ export default class Logger {
   /**
    * Sets the log level of the logger.
    * @param {LogLevel} value - The log level of the logger.
-   * @note The log level is one of the following: 'none', 'error', 'warning', 'info', 'debug', 'verbose'.
+   * @note The log level is one of the following: none, error, warning, info, debug, trace.
    * @throws {ReferenceError} - Value cannot be null or undefined.
    * @throws {TypeError} - Value supplied must of type string or LogLevel.
-   * @throws {TypeError} - Value supplied must be one of the following: 'none', 'error', 'warning', 'info', 'debug', 'verbose'.
+   * @throws {TypeError} - Value supplied must be one of the following: none, error, warning, info, debug, trace.
    */
   public set logLevel(value: LogLevel) {
     if (value === undefined || value === null) {
