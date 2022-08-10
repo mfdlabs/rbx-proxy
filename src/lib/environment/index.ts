@@ -20,6 +20,7 @@
     Written by: Nikita Petko
 */
 
+import { LogLevel } from '@lib/logger';
 import dotenvLoader from '@lib/utility/dotenvLoader';
 import typeConverters from '@lib/utility/typeConverter';
 import { projectDirectoryName } from '@lib/directories';
@@ -426,7 +427,7 @@ export default abstract class Environment {
   }
 
   /**
-   * Used by the logger.
+   * Used by the logger..
    *
    * If true, we will also log to the file system.
    */
@@ -435,7 +436,7 @@ export default abstract class Environment {
   }
 
   /**
-   * Used by the logger.
+   * Used by the logger..
    *
    * If true, we will also log to the console.
    */
@@ -444,12 +445,12 @@ export default abstract class Environment {
   }
 
   /**
-   * Used by the logger.
+   * Used by the logger..
    *
-   * A loglevel for the logger.
+   * A loglevel for the logger..
    */
-  public static get logLevel(): string {
-    return this._getSettingOrDefault('LOG_LEVEL', 'info'); // default to info
+  public static get logLevel(): LogLevel {
+    return this._getSettingOrDefault('LOG_LEVEL', LogLevel.Info); // default to info
   }
 
   /**
@@ -681,7 +682,7 @@ export default abstract class Environment {
    * If true, google analytics reporting is enabled on requests, else the method will just noop.
    */
   public static get requestExtensionsEnableGoogleAnalytics(): boolean {
-    return this._getSettingOrDefault('REQUEST_EXTENSIONS_ENABLE_GOOGLE_ANALYTICS', false);
+    return this._getSettingOrDefault('REQUEST_EXTENSIONS_ENABLE_GOOGLE_ANALYTICS', true);
   }
 
   /**
@@ -744,7 +745,7 @@ export default abstract class Environment {
 
   /**
    * Used by the send axios request middleware.
-   * 
+   *
    * If true, we will just echo back the request configuration to be passed to axios.
    */
   public static get debugEchoRequestConfig(): boolean {
@@ -753,7 +754,7 @@ export default abstract class Environment {
 
   /**
    * Used by the send axios request middleware.
-   * 
+   *
    * If true, then certificate validation will be enabled.
    */
   public static get enableCertificateValidation(): boolean {
@@ -762,10 +763,29 @@ export default abstract class Environment {
 
   /**
    * Used by the health check middleware.
-   * 
+   *
    * Represents the path of the health check endpoint.
    */
   public static get healthCheckPath(): string {
     return this._getSettingOrDefault('HEALTH_CHECK_PATH', '/_lb/_/health');
+  }
+
+  /**
+   * Used by the logger.
+   *
+   * If true, then the logger will cut the prefix of the log message in order to read the log message more easily.
+   * @note This is advised for use in production.
+   */
+  public static get loggerCutPrefix(): boolean {
+    return this._getSettingOrDefault('LOGGER_CUT_PREFIX', false);
+  }
+
+  /**
+   * Used by the logger.
+   *
+   * The default name of the logger.
+   */
+  public static get loggerDefaultName(): string {
+    return this._getSettingOrDefault('LOGGER_DEFAULT_NAME', 'proxy-server');
   }
 }
