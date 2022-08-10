@@ -71,7 +71,11 @@ export default class DenyLoopbackAttackMiddleware {
     request: Request,
     response: Response,
   ): void {
-    denyLoopbackAttackLogger.warning("Request to '%s' or '%s' is a loopback, responding with loopback error", hostname, resolvedAddress);
+    denyLoopbackAttackLogger.warning(
+      "Request to '%s' or '%s' is a loopback, responding with loopback error",
+      hostname,
+      resolvedAddress,
+    );
     request.fireEvent('LoopbackAttack');
 
     const encodedClientIp = htmlEncode(request.ip);

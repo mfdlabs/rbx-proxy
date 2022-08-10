@@ -76,7 +76,11 @@ export default class DenyLocalAreaNetworkAccessMiddleware {
     request: Request,
     response: Response,
   ): void {
-    denyLocalAreaNetworkAccessLogger.warning("Request to '%s' or '%s' is from a LAN, responding with LAN access error", hostname, resolvedAddres);
+    denyLocalAreaNetworkAccessLogger.warning(
+      "Request to '%s' or '%s' is from a LAN, responding with LAN access error",
+      hostname,
+      resolvedAddres,
+    );
     request.fireEvent('localAreaNetworkAccessDenied');
 
     let message = '';

@@ -123,7 +123,7 @@ export const nameRegex: RegExp = /^[a-zA-Z0-9_\-]{1,100}$/;
 
 /**
  * This is an error message for when you supply a name to the constructor that is empty.
- * 
+ *
  * @internal This is only ingested internally.
  * @constant
  * @type {string} The error message.

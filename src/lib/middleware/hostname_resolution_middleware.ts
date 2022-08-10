@@ -65,7 +65,7 @@ export default class HostnameResolutionMiddleware {
 
     const resolvedHostname = await net.resolveHostname(hostname);
 
-    hostnameResolutionLogger.debug('Resolved hostname for \'%s\' to \'%s\'.', hostname, resolvedHostname || '<unknown>');
+    hostnameResolutionLogger.debug("Resolved hostname for '%s' to '%s'.", hostname, resolvedHostname || '<unknown>');
 
     if (typeof resolvedHostname !== 'string' || this._notTruthy(resolvedHostname)) {
       this._handleNxDomain(hostname, request, response);
@@ -88,7 +88,10 @@ export default class HostnameResolutionMiddleware {
   }
 
   private static _handleNxDomain(hostname: string, request: Request, response: Response) {
-    hostnameResolutionLogger.warning("Resolved host for '%s' is undefined or null, responding with invalid hostname error", hostname);
+    hostnameResolutionLogger.warning(
+      "Resolved host for '%s' is undefined or null, responding with invalid hostname error",
+      hostname,
+    );
     request.fireEvent('NXDomain');
 
     response.status(503);
