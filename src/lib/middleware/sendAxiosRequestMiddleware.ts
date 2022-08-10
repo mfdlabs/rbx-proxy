@@ -22,14 +22,22 @@
 
 import '@lib/extensions/express/request';
 
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
 import environment from '@lib/environment';
+import webUtility from '@lib/utility/webUtility';
 
 import * as https from 'https';
 import htmlEncode from 'escape-html';
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { NextFunction, Request, Response } from 'express';
-import webUtility from '@lib/utility/webUtility';
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+
+const sendAxiosRequestLogger = new logger(
+  'send-axios-request-middleware',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 export default class SendAxiosRequestMiddleware {
   /**
@@ -46,13 +54,26 @@ export default class SendAxiosRequestMiddleware {
 
     const uri = `${request.protocol}://${hostname}:${port}${url}`;
 
-    logger.debug(
+    sendAxiosRequestLogger.debug(
       "Proxy request '%s' from client '%s' on upstream hostname '%s' to downstream URI '%s'",
       request.method,
       request.ip,
       hostname,
       uri,
     );
+
+    if (environment.sendAxiosRequestWithForwardedHeaders) {
+      delete request.headers[environment.forwardingHeaderName];
+      delete request.headers[environment.forwardingPortHeaderName];
+      delete request.headers[environment.forwardingSchemeHeaderName];
+      delete request.headers[environment.forwardingTransformedHostHeaderName];
+      delete request.headers['x-forwarded-server'];
+      delete request.headers['x-real-ip'];
+    }
+
+    if (request.body instanceof Buffer) {
+      request.body = this._bufferToString(request.body);
+    }
 
     const configuration = {
       data: request.body,
@@ -70,8 +91,8 @@ export default class SendAxiosRequestMiddleware {
 
       validateStatus: (status: number): boolean => true,
 
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity,
+      // maxBodyLength: Infinity,
+      // maxContentLength: Infinity,
       maxRedirects: 0,
 
       timeout: environment.sendAxiosRequestTimeout,
@@ -83,6 +104,7 @@ export default class SendAxiosRequestMiddleware {
       configuration.headers['X-Forwarded-Port'] = port.toString();
       configuration.headers['X-Forwarded-Proto'] = request.protocol;
       configuration.headers['X-Forwarded-Server'] = this._getMachineName();
+      configuration.headers['X-Real-IP'] = request.realIp;
     }
 
     const transformedOrigin = request.context.get('transformedOrigin');
@@ -102,7 +124,7 @@ export default class SendAxiosRequestMiddleware {
     }
 
     if (environment.debugEchoRequestConfig) {
-      logger.debug('!!! DEBUG VARIABLE ENABLED !!! Respond to upstream with Axios Configuration...');
+      sendAxiosRequestLogger.debug('!!! DEBUG VARIABLE ENABLED !!! Respond to upstream with Axios Configuration...');
 
       response.header('x-debug-axios-response', 'true');
 
@@ -117,6 +139,10 @@ export default class SendAxiosRequestMiddleware {
       .request(configuration)
       .then((axiosResponse) => this._handleAxiosResponse(hostname, axiosResponse, request, response, next))
       .catch((axiosError) => this._handleAxiosError(hostname, axiosError, request, response, next));
+  }
+
+  private static _bufferToString(buffer: Buffer): string {
+    return buffer.toString('utf8');
   }
 
   private static _machineNameCached = undefined;
@@ -189,8 +215,8 @@ export default class SendAxiosRequestMiddleware {
     const uri = error.config.url;
 
     // Check if error is a timeout
-    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-      logger.warning(
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
+      sendAxiosRequestLogger.warning(
         "Proxy timed out from downstream URI '%s' on upstream hostname '%s' after %dms.",
         uri,
         hostname,
@@ -219,7 +245,7 @@ export default class SendAxiosRequestMiddleware {
       return;
     }
 
-    logger.error(
+    sendAxiosRequestLogger.error(
       "Proxy error '%s' from downstream URI '%s' at upstream hostname '%s' in %dms",
       error.message,
       uri,
@@ -245,7 +271,7 @@ export default class SendAxiosRequestMiddleware {
     try {
       const timing = Date.now() - request.context.get('startTime');
 
-      logger.debug(
+      sendAxiosRequestLogger.debug(
         "Proxy response %d (%s) from downstream URI '%s' at upstream hostname '%s' in %dms",
         axiosResponse.status,
         axiosResponse.statusText,
@@ -261,7 +287,7 @@ export default class SendAxiosRequestMiddleware {
       // Check for a redirect.
       if (axiosResponse.headers.location) {
         const location = axiosResponse.headers.location;
-        logger.debug('Transforming redirect location');
+        sendAxiosRequestLogger.debug('Transforming redirect location');
 
         // If the request is a domain, then replace this request hostname with the current transformed hostname
         if (location.startsWith('http://') || location.startsWith('https://')) {
@@ -340,7 +366,7 @@ export default class SendAxiosRequestMiddleware {
             // We'll respond with a 504 Gateway Timeout.
             // Please read RBXPRR-35 for more information.
 
-            logger.error(
+            sendAxiosRequestLogger.error(
               "Proxy error '%s' from downstream URI '%s' at upstream hostname '%s' in %dms",
               error.message,
               axiosResponse.config.url,
@@ -352,7 +378,7 @@ export default class SendAxiosRequestMiddleware {
               `Proxy error '${error.message}' from downstream URI '${axiosResponse.config.url}' at upstream hostname '${request.headers.host}' in ${timing}ms`,
             );
 
-            response.status(504);
+            response.status(502);
             response.header({
               'x-downstream-timing': `${timing}ms`,
             });
@@ -360,7 +386,7 @@ export default class SendAxiosRequestMiddleware {
             response.contentType('text/html');
 
             response.send(
-              `<html><body><h1>504 Gateway Timeout</h1><p>The downstream response from URI '${htmlEncode(
+              `<html><body><h1>502 Bad Gateway</h1><p>The downstream response from URI '${htmlEncode(
                 axiosResponse.config.url,
               )}' was aborted.</p><p><b>This is a known issue, and there's Jira ticket (<a href="https://mfdlabs.atlassian.net/browse/RBXPRR-35">RBXPRR-35</a>) that attempts to resolve this issue.</b></p></body></html>`,
             );
@@ -368,13 +394,13 @@ export default class SendAxiosRequestMiddleware {
             return;
           }
 
-          logger.error('Error in response stream', error);
+          sendAxiosRequestLogger.error('Error in response stream', error);
           request.fireEvent('ProxyResponseError', error);
 
           next(error);
         });
     } catch (error) {
-      logger.error('Error while proxying response: %s', error.message);
+      sendAxiosRequestLogger.error('Error while proxying response: %s', error.message);
       request.fireEvent('ProxyResponseError', `Error while proxying response: ${error.message}`);
       next(error);
     }

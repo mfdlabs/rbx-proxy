@@ -98,7 +98,7 @@ if (!express.request.hasOwnProperty('fireEvent')) {
             baseGaString = `Client [redacted]\n${this.method} ${this.originalUrl} ${httpVersion}\n${headersAsString}\n`;
 
           if (!environment.ga4DisableLoggingBody) {
-            const body = this.body.toString();
+            const body = this.body?.toString() ?? '';
 
             if (body !== '[object Object]') {
               let truncatedBody = body.substring(0, 500);
@@ -119,6 +119,17 @@ if (!express.request.hasOwnProperty('fireEvent')) {
       const ga = context.get('ga');
 
       await googleAnalytics.fireServerEventGA4(ga.category, action, ga.baseGaString);
+    },
+  });
+}
+
+// Method: realIp
+// Description: Returns the real ip of the request.
+// Language: typescript
+if (!express.request.hasOwnProperty('realIp')) {
+  Object.defineProperty(express.request, 'realIp', {
+    get: function getRealIp() {
+      return this.socket ? this.getSocket().remoteAddress : this.connection?.remoteAddress;
     },
   });
 }
