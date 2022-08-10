@@ -20,6 +20,8 @@
 	Written by: Nikita Petko
 */
 
+export {};
+
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -34,50 +36,48 @@ const cache = {};
 const moduleProto = Object.getPrototypeOf(module);
 const origRequire = moduleProto.require;
 
-export default function () {
-  moduleProto.require = function (id: string) {
-    let cachedPath = cache[id];
+moduleProto.require = function (id: string) {
+  let cachedPath = cache[id];
 
-    if (cachedPath === undefined) {
-      cachedPath = '';
+  if (cachedPath === undefined) {
+    cachedPath = '';
 
-      // If the path is not like /home/user/test/file.js or ./file.js then we need to
-      // search for the file in the paths.
-      if (!path.isAbsolute(id) && id.charCodeAt(0) !== CH_PERIOD) {
-        // If it starts with @ but isn't in node_modules, it's probably a file path.
-        if (id.charCodeAt(0) === CH_AT) {
-          // Normally the second string within paths is the node_modules path.
-          const nodeModulesPath = paths[1];
+    // If the path is not like /home/user/test/file.js or ./file.js then we need to
+    // search for the file in the paths.
+    if (!path.isAbsolute(id) && id.charCodeAt(0) !== CH_PERIOD) {
+      // If it starts with @ but isn't in node_modules, it's probably a file path.
+      if (id.charCodeAt(0) === CH_AT) {
+        // Normally the second string within paths is the node_modules path.
+        const nodeModulesPath = paths[1];
 
-          if (nodeModulesPath.includes('node_modules')) {
-            // Join the nodeModules path with the request.
-            const nodeModulePath = path.join(nodeModulesPath, id);
+        if (nodeModulesPath.includes('node_modules')) {
+          // Join the nodeModules path with the request.
+          const nodeModulePath = path.join(nodeModulesPath, id);
 
-            // If it doesn't exist then remove the @ from the request as it's probably a file path.
-            if (!fs.existsSync(nodeModulePath)) {
-              id = id.slice(1);
-            }
+          // If it doesn't exist then remove the @ from the request as it's probably a file path.
+          if (!fs.existsSync(nodeModulePath)) {
+            id = id.slice(1);
           }
         }
-
-        const ext = path.extname(id);
-        const basedRequest = path.join(baseUrl, ext ? id : id + '.js');
-
-        if (fs.existsSync(basedRequest)) {
-          // It exists at the specified path. Use that.
-          cachedPath = basedRequest;
-        } else {
-          // It doesn't exist at the specified path.
-          // See if it's a index.js file.
-
-          const basedIndexRequest = path.join(baseUrl, id, 'index.js');
-
-          cachedPath = fs.existsSync(basedIndexRequest) ? basedIndexRequest : '';
-        }
       }
-      cache[id] = cachedPath;
+
+      const ext = path.extname(id);
+      const basedRequest = path.join(baseUrl, ext ? id : id + '.js');
+
+      if (fs.existsSync(basedRequest)) {
+        // It exists at the specified path. Use that.
+        cachedPath = basedRequest;
+      } else {
+        // It doesn't exist at the specified path.
+        // See if it's a index.js file.
+
+        const basedIndexRequest = path.join(baseUrl, id, 'index.js');
+
+        cachedPath = fs.existsSync(basedIndexRequest) ? basedIndexRequest : '';
+      }
     }
-    return origRequire.call(this, cachedPath || id);
-  };
-  //#endregion
-}
+    cache[id] = cachedPath;
+  }
+  return origRequire.call(this, cachedPath || id);
+};
+//#endregion
