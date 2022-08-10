@@ -26,7 +26,7 @@ import * as path from 'path';
 /**
  * A simple helper that recursively walks through the directory structure.
  */
-abstract class Walkers {
+export default abstract class Walkers {
   /**
    * Recursively walks through the directory structure.
    * @param {string} directoryName The directory to walk through.
@@ -49,5 +49,3 @@ abstract class Walkers {
     return paths;
   }
 }
-
-export = Walkers;

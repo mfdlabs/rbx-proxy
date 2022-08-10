@@ -24,7 +24,7 @@
 // Type imports.
 ////////////////////////////////////////////////////////////////////////////////
 
-import { RoutingMethod } from '../customTypes/routingMethod';
+import { RoutingMethod } from '../custom_types/routing_method';
 
 ////////////////////////////////////////////////////////////////////////////////
 // Third-party imports.
@@ -35,7 +35,7 @@ import { NextFunction, Request, Response } from 'express';
 /**
  * Represents an interface to implement for any routes.
  */
-interface Route {
+export default interface Route {
   /**
    * The method to use for the route.
    */
@@ -50,5 +50,3 @@ interface Route {
    */
   invoke(request: Request, response: Response, next: NextFunction): any;
 }
-
-export = Route;

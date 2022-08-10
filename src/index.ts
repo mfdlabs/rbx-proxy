@@ -36,18 +36,13 @@ https://opsec.bk2time.vmminfra.dev/ui/projects/rkaev/roblox-proxy/summary?from=r
 // Top Level Declarations
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// OPSEC625-NJS-001:
-// https://opsec.bk2time.vmminfra.dev/ui/projects/pyro-daktev/ops-625-njs-001/summary?from=seriez-excite.vmminfra.dev+comspec+cmd+/c+dir+/q
-import importHandler from './importHandler';
-importHandler();
+import './import_handler';
+import './stdin_handler';
 
-import stdinHandler from './stdinHandler';
-stdinHandler();
-
-import dotenvLoader from '@lib/utility/dotenvLoader';
+import dotenvLoader from '@lib/environment/dotenv_loader';
 dotenvLoader.reloadEnvironment();
 
-import googleAnalytics from '@lib/utility/googleAnalytics';
+import googleAnalytics from '@lib/utility/google_analytics';
 googleAnalytics.initialize();
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -57,36 +52,35 @@ googleAnalytics.initialize();
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import web from '@lib/setup';
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
 import environment from '@lib/environment';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Type Declarations
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import startupOptions from '@lib/setup/options/startupOptions';
+import startupOptions from '@lib/setup/options/startup_options';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Middleware
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import errorMiddleware from '@lib/middleware/errorMiddleware';
-import loggingMiddleware from '@lib/middleware/loggingMiddleware';
-import notFoundMiddleware from '@lib/middleware/notFoundMiddleware';
-import overrideMiddleware from '@lib/middleware/overrideMiddleware';
-import cidrCheckMiddleware from '@lib/middleware/cidrCheckMiddleware';
-import beginTimingMiddleware from '@lib/middleware/beginTimingMiddleware';
-import healthCheckMiddleware from '@lib/middleware/healthCheckMiddleware';
-import sphynxDomainMiddleware from '@lib/middleware/sphynxDomainMiddleware';
-import crawlerCheckMiddleware from '@lib/middleware/crawlerCheckMiddleware';
-import reverseProxyMiddleware from '@lib/middleware/reverseProxyMiddleware';
-import corsApplicationMiddleware from '@lib/middleware/corsApplicationMiddleware';
-import sendAxiosRequestMiddleware from '@lib/middleware/sendAxiosRequestMiddleware';
-import loadBalancerInfoMiddleware from '@lib/middleware/loadBalancerInfoMiddleware';
-import denyLoopbackAttackMiddleware from '@lib/middleware/denyLoopbackAttackMiddleware';
-import hostnameResolutionMiddleware from '@lib/middleware/hostnameResolutionMiddleware';
-import wanAddressApplicationMiddleware from '@lib/middleware/wanAddressApplicationMiddleware';
-import denyLocalAreaNetworkAccessMiddleware from '@lib/middleware/denyLocalAreaNetworkAccessMiddleware';
+import errorMiddleware from '@lib/middleware/error_middleware';
+import loggingMiddleware from '@lib/middleware/logging_middleware';
+import overrideMiddleware from '@lib/middleware/override_middleware';
+import cidrCheckMiddleware from '@lib/middleware/cidr_check_middleware';
+import beginTimingMiddleware from '@lib/middleware/begin_timing_middleware';
+import healthCheckMiddleware from '@lib/middleware/health_check_middleware';
+import sphynxDomainMiddleware from '@lib/middleware/sphynx_domain_middleware';
+import crawlerCheckMiddleware from '@lib/middleware/crawler_check_middleware';
+import reverseProxyMiddleware from '@lib/middleware/reverse_proxy_middleware';
+import corsApplicationMiddleware from '@lib/middleware/cors_application_middleware';
+import sendAxiosRequestMiddleware from '@lib/middleware/send_axios_request_middleware';
+import loadBalancerInfoMiddleware from '@lib/middleware/load_balancer_info_middleware';
+import denyLoopbackAttackMiddleware from '@lib/middleware/deny_loopback_attack_middleware';
+import hostnameResolutionMiddleware from '@lib/middleware/hostname_resolution_middleware';
+import wanAddressApplicationMiddleware from '@lib/middleware/wan_address_application_middleware';
+import denyLocalAreaNetworkAccessMiddleware from '@lib/middleware/deny_local_area_network_access_middleware';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Third Party Declarations
@@ -95,6 +89,17 @@ import denyLocalAreaNetworkAccessMiddleware from '@lib/middleware/denyLocalAreaN
 import * as fs from 'fs';
 import * as path from 'path';
 import express from 'express';
+import * as bodyParser from 'body-parser';
+
+Error.stackTraceLimit = Infinity;
+
+const entrypointLogger = new logger(
+  'entrypoint',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 // RBXPRR-2 RBXPRR-3:
 // We want to try and not hard code these values.
@@ -106,6 +111,15 @@ googleAnalytics.fireServerEventGA4('Server', 'Start');
 
 const proxyServer = express();
 
+// Make sure it uses body-parser.raw() to parse the body as a Buffer.
+proxyServer.use(
+  bodyParser.raw({
+    inflate: true,
+    limit: '5Gb',
+    type: () => true,
+  }),
+);
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Middleware
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -114,31 +128,47 @@ const proxyServer = express();
 // Express's function context and cause the `this` keyword to be either undefined or not have the correct
 // members.
 
-proxyServer.use((request, response, next) => overrideMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => reverseProxyMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => loggingMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => cidrCheckMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => crawlerCheckMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => loadBalancerInfoMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => healthCheckMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => beginTimingMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => wanAddressApplicationMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => hostnameResolutionMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => denyLocalAreaNetworkAccessMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => denyLoopbackAttackMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => corsApplicationMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => sphynxDomainMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => sendAxiosRequestMiddleware.invoke(request, response, next));
+entrypointLogger.information('Loading middleware...');
+
+proxyServer.use(overrideMiddleware.invoke.bind(overrideMiddleware));
+proxyServer.use(reverseProxyMiddleware.invoke.bind(reverseProxyMiddleware));
+proxyServer.use(loggingMiddleware.invoke.bind(loggingMiddleware));
+proxyServer.use(cidrCheckMiddleware.invoke.bind(cidrCheckMiddleware));
+proxyServer.use(crawlerCheckMiddleware.invoke.bind(crawlerCheckMiddleware));
+proxyServer.use(loadBalancerInfoMiddleware.invoke.bind(loadBalancerInfoMiddleware));
+proxyServer.use(healthCheckMiddleware.invoke.bind(healthCheckMiddleware));
+proxyServer.use(beginTimingMiddleware.invoke.bind(beginTimingMiddleware));
+proxyServer.use(wanAddressApplicationMiddleware.invoke.bind(wanAddressApplicationMiddleware));
+proxyServer.use(hostnameResolutionMiddleware.invoke.bind(hostnameResolutionMiddleware));
+proxyServer.use(denyLocalAreaNetworkAccessMiddleware.invoke.bind(denyLocalAreaNetworkAccessMiddleware));
+proxyServer.use(denyLoopbackAttackMiddleware.invoke.bind(denyLoopbackAttackMiddleware));
+proxyServer.use(corsApplicationMiddleware.invoke.bind(corsApplicationMiddleware));
+proxyServer.use(sphynxDomainMiddleware.invoke.bind(sphynxDomainMiddleware));
+proxyServer.use(sendAxiosRequestMiddleware.invoke.bind(sendAxiosRequestMiddleware));
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-if (environment.logStartupInfo) web.overrideLoggers(logger.information, logger.warning, logger.debug, logger.error);
+if (environment.logStartupInfo) {
+  const setupLogger = new logger(
+    'setup',
+    environment.logLevel,
+    environment.logToFileSystem,
+    environment.logToConsole,
+    environment.loggerCutPrefix,
+  );
+  web.overrideLoggers(
+    setupLogger.information.bind(setupLogger),
+    setupLogger.warning.bind(setupLogger),
+    setupLogger.debug.bind(setupLogger),
+    setupLogger.error.bind(setupLogger),
+  );
+}
 
 web.configureServer({
   app: proxyServer,
   noETag: true,
   noXPowerBy: true,
-  rawBufferRequest: true,
+  rawBufferRequest: false,
   routingOptions: {
     caseSensitive: true, // We want to be case sensitive for our routes, so that /a and /A are different
     strict: true, // We want /a and /a/ to be treated as different routes
@@ -146,19 +176,27 @@ web.configureServer({
   trustProxy: false,
 });
 
-proxyServer.use((request, response, next) => notFoundMiddleware.invoke(request, response, next));
-proxyServer.use((error, request, response, next) => errorMiddleware.invoke(error, request, response, next));
+proxyServer.use(errorMiddleware.invoke.bind(errorMiddleware));
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Settings
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 if (environment.enableSecureServer) {
-  if (environment.enableTLSv2) settings.tlsV2 = true;
+  entrypointLogger.information('Loading TLS settings...');
+
+  if (environment.enableTLSv2) {
+    entrypointLogger.information('TLSv2 is enabled.');
+    settings.tlsV2 = true;
+  }
   settings.tls = true;
   settings.tlsPort = environment.securePort;
 
   if (!fs.existsSync(environment.sslBaseDirectory)) {
+    entrypointLogger.error(
+      `The SSL base directory does not exist. Please make sure it exists and is readable. Path: %s`,
+      environment.sslBaseDirectory,
+    );
     throw new Error(`The SSL base directory "${environment.sslBaseDirectory}" does not exist.`);
   }
 
@@ -166,10 +204,18 @@ if (environment.enableSecureServer) {
   const fullyQualifiedKeyPath = path.join(environment.sslBaseDirectory, environment.sslKeyFileName);
 
   if (!fs.existsSync(fullyQualifiedCertificatePath)) {
+    entrypointLogger.error(
+      `The SSL certificate file does not exist. Please make sure it exists and is readable. Path: %s`,
+      fullyQualifiedCertificatePath,
+    );
     throw new Error(`The SSL certificate file "${fullyQualifiedCertificatePath}" does not exist.`);
   }
 
   if (!fs.existsSync(fullyQualifiedKeyPath)) {
+    entrypointLogger.error(
+      `The SSL key file does not exist. Please make sure it exists and is readable. Path: %s`,
+      fullyQualifiedKeyPath,
+    );
     throw new Error(`The SSL key file "${fullyQualifiedKeyPath}" does not exist.`);
   }
 
@@ -178,16 +224,22 @@ if (environment.enableSecureServer) {
   settings.key = environment.sslKeyFileName;
 
   if (environment.sslKeyPassphrase !== null) {
+    entrypointLogger.information('TLS key passphrase is enabled.');
     settings.passphrase = environment.sslKeyPassphrase;
   }
 
   if (environment.sslCertificateChainFileName !== null) {
+    entrypointLogger.information('TLS certificate chain is enabled.');
     const fullyQualifiedCertificateChainPath = path.join(
       environment.sslBaseDirectory,
       environment.sslCertificateChainFileName,
     );
 
     if (!fs.existsSync(fullyQualifiedCertificateChainPath)) {
+      entrypointLogger.error(
+        `The SSL certificate chain file does not exist. Please make sure it exists and is readable. Path: %s`,
+        fullyQualifiedCertificateChainPath,
+      );
       throw new Error(`The SSL certificate chain file "${fullyQualifiedCertificateChainPath}" does not exist.`);
     }
 
@@ -205,10 +257,11 @@ web.startServer({
   ...settings,
 });
 
-// https://mfdlabs.atlassian.net/browse/RBXPRR-5476
+// https://mfdlabs.atlassian.net/browse/RBXPRR-11
 // This is a temporary fix for the issue where the server is not able to start when
 // running in a Docker container on IPv6.
 if (!environment.disableIPv6 && !environment.isDocker()) {
+  entrypointLogger.information('Starting IPv6 server...');
   settings.bind = environment.bindAddressIPv6;
   web.startServer({
     app: proxyServer,

@@ -18,7 +18,7 @@
  * Facilitates helpers for string manipulation and conversion.
  * @internal This class is not intended for use by application developers.
  */
-class Converters {
+export default abstract class Converters {
   /**
    * Converts a string into a `snake_case` string.
    * @param {string} str The string to convert.
@@ -56,5 +56,3 @@ class Converters {
     });
   }
 }
-
-export = Converters;
