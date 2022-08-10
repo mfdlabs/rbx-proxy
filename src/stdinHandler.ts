@@ -20,34 +20,42 @@
 	Written by: Nikita Petko
 */
 
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
 import environment from '@lib/environment';
+
+const stdinLogger = new logger(
+  'stdin-handler',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 export default function () {
   process.stdin.resume();
 
   process.on('SIGINT', () => {
-    logger.log('Got SIGINT. Will start shutdown procedure within 1 second.');
+    stdinLogger.log('Got SIGINT. Will start shutdown procedure within 1 second.');
     setTimeout(() => {
       logger.tryClearLocalLog();
       process.exit(0);
     }, 1000);
   });
   process.on('SIGUSR1', () => {
-    logger.log('Got SIGUSR1. Will start shutdown procedure within 1 second.');
+    stdinLogger.log('Got SIGUSR1. Will start shutdown procedure within 1 second.');
     setTimeout(() => {
       return process.exit(0);
     }, 1000);
   });
   process.on('SIGUSR2', () => {
-    logger.log('Got SIGUSR2. Will clear LocalLog within 1 second.');
+    stdinLogger.log('Got SIGUSR2. Will clear LocalLog within 1 second.');
     setTimeout(() => {
       logger.tryClearLocalLog();
     }, 1000);
   });
 
   process.on('SIGTERM', () => {
-    logger.log('Got SIGTERM. Will start shutdown procedure within 1 second.');
+    stdinLogger.log('Got SIGTERM. Will start shutdown procedure within 1 second.');
     setTimeout(() => {
       logger.tryClearLocalLog(true);
       process.exit(0);
@@ -55,17 +63,17 @@ export default function () {
   });
 
   process.on('uncaughtException', (ex) => {
-    logger.error('*** BEGIN PROCESS EXCEPTION ***');
-    logger.error('REASON FOR EXCEPTION: %s', ex.stack || '');
-    logger.error('*** END PROCESS EXCEPTION ***');
+    stdinLogger.error('*** BEGIN PROCESS EXCEPTION ***');
+    stdinLogger.error('REASON FOR EXCEPTION: %s', ex.stack || '');
+    stdinLogger.error('*** END PROCESS EXCEPTION ***');
 
     if (environment.exitOnUncaughtException) process.exit(1);
   });
 
   process.on('unhandledRejection', (reason) => {
-    logger.error('*** BEGIN PROCESS REJECTION ***');
-    logger.error('REASON FOR REJECTION: %s', reason || '');
-    logger.error('*** END PROCESS REJECTION ***');
+    stdinLogger.error('*** BEGIN PROCESS REJECTION ***');
+    stdinLogger.error('REASON FOR REJECTION: %s', reason || '');
+    stdinLogger.error('*** END PROCESS REJECTION ***');
 
     if (environment.exitOnUnhandledRejection) process.exit(1);
   });

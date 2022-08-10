@@ -57,7 +57,7 @@ googleAnalytics.initialize();
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import web from '@lib/setup';
-import logger from '@lib/utility/logger';
+import logger from '@lib/logger';
 import environment from '@lib/environment';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -72,7 +72,6 @@ import startupOptions from '@lib/setup/options/startupOptions';
 
 import errorMiddleware from '@lib/middleware/errorMiddleware';
 import loggingMiddleware from '@lib/middleware/loggingMiddleware';
-import notFoundMiddleware from '@lib/middleware/notFoundMiddleware';
 import overrideMiddleware from '@lib/middleware/overrideMiddleware';
 import cidrCheckMiddleware from '@lib/middleware/cidrCheckMiddleware';
 import beginTimingMiddleware from '@lib/middleware/beginTimingMiddleware';
@@ -95,6 +94,17 @@ import denyLocalAreaNetworkAccessMiddleware from '@lib/middleware/denyLocalAreaN
 import * as fs from 'fs';
 import * as path from 'path';
 import express from 'express';
+import * as bodyParser from 'body-parser';
+
+Error.stackTraceLimit = Infinity;
+
+const entrypointLogger = new logger(
+  'entrypoint',
+  environment.logLevel,
+  environment.logToFileSystem,
+  environment.logToConsole,
+  environment.loggerCutPrefix,
+);
 
 // RBXPRR-2 RBXPRR-3:
 // We want to try and not hard code these values.
@@ -106,6 +116,15 @@ googleAnalytics.fireServerEventGA4('Server', 'Start');
 
 const proxyServer = express();
 
+// Make sure it uses body-parser.raw() to parse the body as a Buffer.
+proxyServer.use(
+  bodyParser.raw({
+    inflate: true,
+    limit: '5Gb',
+    type: () => true,
+  }),
+);
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Middleware
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -114,31 +133,47 @@ const proxyServer = express();
 // Express's function context and cause the `this` keyword to be either undefined or not have the correct
 // members.
 
-proxyServer.use((request, response, next) => overrideMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => reverseProxyMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => loggingMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => cidrCheckMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => crawlerCheckMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => loadBalancerInfoMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => healthCheckMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => beginTimingMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => wanAddressApplicationMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => hostnameResolutionMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => denyLocalAreaNetworkAccessMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => denyLoopbackAttackMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => corsApplicationMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => sphynxDomainMiddleware.invoke(request, response, next));
-proxyServer.use((request, response, next) => sendAxiosRequestMiddleware.invoke(request, response, next));
+entrypointLogger.information('Loading middleware...');
+
+proxyServer.use(overrideMiddleware.invoke.bind(overrideMiddleware));
+proxyServer.use(reverseProxyMiddleware.invoke.bind(reverseProxyMiddleware));
+proxyServer.use(loggingMiddleware.invoke.bind(loggingMiddleware));
+proxyServer.use(cidrCheckMiddleware.invoke.bind(cidrCheckMiddleware));
+proxyServer.use(crawlerCheckMiddleware.invoke.bind(crawlerCheckMiddleware));
+proxyServer.use(loadBalancerInfoMiddleware.invoke.bind(loadBalancerInfoMiddleware));
+proxyServer.use(healthCheckMiddleware.invoke.bind(healthCheckMiddleware));
+proxyServer.use(beginTimingMiddleware.invoke.bind(beginTimingMiddleware));
+proxyServer.use(wanAddressApplicationMiddleware.invoke.bind(wanAddressApplicationMiddleware));
+proxyServer.use(hostnameResolutionMiddleware.invoke.bind(hostnameResolutionMiddleware));
+proxyServer.use(denyLocalAreaNetworkAccessMiddleware.invoke.bind(denyLocalAreaNetworkAccessMiddleware));
+proxyServer.use(denyLoopbackAttackMiddleware.invoke.bind(denyLoopbackAttackMiddleware));
+proxyServer.use(corsApplicationMiddleware.invoke.bind(corsApplicationMiddleware));
+proxyServer.use(sphynxDomainMiddleware.invoke.bind(sphynxDomainMiddleware));
+proxyServer.use(sendAxiosRequestMiddleware.invoke.bind(sendAxiosRequestMiddleware));
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-if (environment.logStartupInfo) web.overrideLoggers(logger.information, logger.warning, logger.debug, logger.error);
+if (environment.logStartupInfo) {
+  const setupLogger = new logger(
+    'setup',
+    environment.logLevel,
+    environment.logToFileSystem,
+    environment.logToConsole,
+    environment.loggerCutPrefix,
+  );
+  web.overrideLoggers(
+    setupLogger.information.bind(setupLogger),
+    setupLogger.warning.bind(setupLogger),
+    setupLogger.debug.bind(setupLogger),
+    setupLogger.error.bind(setupLogger),
+  );
+}
 
 web.configureServer({
   app: proxyServer,
   noETag: true,
   noXPowerBy: true,
-  rawBufferRequest: true,
+  rawBufferRequest: false,
   routingOptions: {
     caseSensitive: true, // We want to be case sensitive for our routes, so that /a and /A are different
     strict: true, // We want /a and /a/ to be treated as different routes
@@ -146,19 +181,27 @@ web.configureServer({
   trustProxy: false,
 });
 
-proxyServer.use((request, response, next) => notFoundMiddleware.invoke(request, response, next));
-proxyServer.use((error, request, response, next) => errorMiddleware.invoke(error, request, response, next));
+proxyServer.use(errorMiddleware.invoke.bind(errorMiddleware));
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Settings
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 if (environment.enableSecureServer) {
-  if (environment.enableTLSv2) settings.tlsV2 = true;
+  entrypointLogger.information('Loading TLS settings...');
+
+  if (environment.enableTLSv2) {
+    entrypointLogger.information('TLSv2 is enabled.');
+    settings.tlsV2 = true;
+  }
   settings.tls = true;
   settings.tlsPort = environment.securePort;
 
   if (!fs.existsSync(environment.sslBaseDirectory)) {
+    entrypointLogger.error(
+      `The SSL base directory does not exist. Please make sure it exists and is readable. Path: %s`,
+      environment.sslBaseDirectory,
+    );
     throw new Error(`The SSL base directory "${environment.sslBaseDirectory}" does not exist.`);
   }
 
@@ -166,10 +209,18 @@ if (environment.enableSecureServer) {
   const fullyQualifiedKeyPath = path.join(environment.sslBaseDirectory, environment.sslKeyFileName);
 
   if (!fs.existsSync(fullyQualifiedCertificatePath)) {
+    entrypointLogger.error(
+      `The SSL certificate file does not exist. Please make sure it exists and is readable. Path: %s`,
+      fullyQualifiedCertificatePath,
+    );
     throw new Error(`The SSL certificate file "${fullyQualifiedCertificatePath}" does not exist.`);
   }
 
   if (!fs.existsSync(fullyQualifiedKeyPath)) {
+    entrypointLogger.error(
+      `The SSL key file does not exist. Please make sure it exists and is readable. Path: %s`,
+      fullyQualifiedKeyPath,
+    );
     throw new Error(`The SSL key file "${fullyQualifiedKeyPath}" does not exist.`);
   }
 
@@ -178,16 +229,22 @@ if (environment.enableSecureServer) {
   settings.key = environment.sslKeyFileName;
 
   if (environment.sslKeyPassphrase !== null) {
+    entrypointLogger.information('TLS key passphrase is enabled.');
     settings.passphrase = environment.sslKeyPassphrase;
   }
 
   if (environment.sslCertificateChainFileName !== null) {
+    entrypointLogger.information('TLS certificate chain is enabled.');
     const fullyQualifiedCertificateChainPath = path.join(
       environment.sslBaseDirectory,
       environment.sslCertificateChainFileName,
     );
 
     if (!fs.existsSync(fullyQualifiedCertificateChainPath)) {
+      entrypointLogger.error(
+        `The SSL certificate chain file does not exist. Please make sure it exists and is readable. Path: %s`,
+        fullyQualifiedCertificateChainPath,
+      );
       throw new Error(`The SSL certificate chain file "${fullyQualifiedCertificateChainPath}" does not exist.`);
     }
 
@@ -205,10 +262,11 @@ web.startServer({
   ...settings,
 });
 
-// https://mfdlabs.atlassian.net/browse/RBXPRR-5476
+// https://mfdlabs.atlassian.net/browse/RBXPRR-11
 // This is a temporary fix for the issue where the server is not able to start when
 // running in a Docker container on IPv6.
 if (!environment.disableIPv6 && !environment.isDocker()) {
+  entrypointLogger.information('Starting IPv6 server...');
   settings.bind = environment.bindAddressIPv6;
   web.startServer({
     app: proxyServer,
