@@ -44,7 +44,7 @@ importHandler();
 import stdinHandler from './stdinHandler';
 stdinHandler();
 
-import dotenvLoader from '@lib/utility/dotenvLoader';
+import dotenvLoader from '@lib/environment/dotenvLoader';
 dotenvLoader.reloadEnvironment();
 
 import googleAnalytics from '@lib/utility/googleAnalytics';
