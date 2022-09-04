@@ -12,7 +12,4 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# More information about these CODEOWNERS can be found at:
-# https://confluence.wow.vmminfra.dev/display/DEVOPS/CODEOWNERS
-
 * @mfdlabs/who-owns-this-sector @mfdlabs-ops @mfdlabs-sec-ops @nkpetko @rkaev-convex

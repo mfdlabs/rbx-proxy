@@ -55,7 +55,7 @@ export default class SphynxDomainMiddleware {
       );
       request.fireEvent('SphynxRequest');
 
-      /* TODO: [RBXPRR-46] Move this harcoded stuff away from just Sphynx */
+      /* TODO: Move this harcoded stuff away from just Sphynx */
       const hardcodedResponse = sphynxServiceRewriteReader.getHardcodedResponse(request.method, request.originalUrl);
 
       if (hardcodedResponse) {

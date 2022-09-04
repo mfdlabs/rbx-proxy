@@ -15,6 +15,7 @@
 */
 
 /* eslint-disable no-prototype-builtins */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /*
     File Name: index.ts

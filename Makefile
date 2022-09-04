@@ -17,7 +17,7 @@
 # Or like this to push to a registry:
 # make IMAGE_NAME=<image name> CI=true
 
-IMAGE_TAG=$(shell git rev-parse HEAD | cut -c1-7)
+IMAGE_TAG=$(shell git rev-parse HEAD)
 
 build:
 ifndef IMAGE_NAME

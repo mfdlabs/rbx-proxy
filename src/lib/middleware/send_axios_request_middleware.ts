@@ -366,7 +366,6 @@ export default class SendAxiosRequestMiddleware {
           if (error.code === 'ECONNRESET') {
             // This is an unknown issue where the connection will reset on some TLS connections.
             // We'll respond with a 504 Gateway Timeout.
-            // Please read RBXPRR-35 for more information.
 
             sendAxiosRequestLogger.error(
               'Proxy error \'%s\' from downstream URI \'%s\' at upstream hostname \'%s\' in %dms',
@@ -391,7 +390,7 @@ export default class SendAxiosRequestMiddleware {
             response.send(
               `<html><body><h1>502 Bad Gateway</h1><p>The downstream response from URI '${htmlEncode(
                 axiosResponse.config.url,
-              )}' was aborted.</p><p><b>This is a known issue, and there's Jira ticket (<a href="https://mfdlabs.atlassian.net/browse/RBXPRR-35">RBXPRR-35</a>) that attempts to resolve this issue.</b></p></body></html>`,
+              )}' was aborted.</p><p><b>This is a known issue, please be patient while we look for a fix.</b></p></body></html>`,
             );
 
             return;
