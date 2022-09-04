@@ -20,18 +20,6 @@
     Written by: Nikita Petko
 */
 
-/*
-If anyone requires more information about this project, please read the Confluence page:
-https://rblx.confluence.rkaev.dev/display/RBXPRR/Roblox+Hostname+Tranformation+Proxy++By+Nikita+Petko+and+ConVEX (https://rblx.confluence.rkaev.dev/pages/viewpage.action?pageId=56908717)
-
-Or read the Jira project:
-https://mfdlabs.atlassian.net/browse/RBXPRR
-
-Or if on MFDLABS VPN, go to the Backlog Project:
-https://opsec.bk2time.vmminfra.dev/ui/projects/rkaev/roblox-proxy/summary?from=rblx.jira.rkaev.dev+browse+RBXPRR&from=rblx.confluence.rkaev.dev+display+RBXPRR+Roblox+Hostname+Tranformation+Proxy++By+Nikita+Petko+and+ConVEX
-
-*/
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Top Level Declarations
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -101,7 +89,6 @@ const entrypointLogger = new logger(
   environment.loggerCutPrefix,
 );
 
-// RBXPRR-2 RBXPRR-3:
 // We want to try and not hard code these values.
 // In the future we should have an environment variable for the passphrase
 // and maybe the certificate stuff as well.
@@ -257,7 +244,6 @@ web.startServer({
   ...settings,
 });
 
-// https://mfdlabs.atlassian.net/browse/RBXPRR-11
 // This is a temporary fix for the issue where the server is not able to start when
 // running in a Docker container on IPv6.
 if (!environment.disableIPv6 && !environment.isDocker()) {
