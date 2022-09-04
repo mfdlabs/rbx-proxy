@@ -38,4 +38,6 @@ export default interface RouteSetupOptions {
    * This is only ingested by the logger for debugging purposes.
    */
   debugName?: string;
+
+  // eslint-disable-next-line semi
 }

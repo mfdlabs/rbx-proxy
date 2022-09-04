@@ -30,12 +30,14 @@ import { NextFunction, Request, Response } from 'express';
 export default class ErrorMiddleware {
   /**
    * Invokes the middleware.
+   * @param {Error} error The error object.
    * @param {Request} request The request object.
    * @param {Response} response The response object.
-   * @param {NextFunction} next The next function to call.
+   * @param {NextFunction} _next The next function to call.
    * @returns {void} Nothing.
    */
-  public static invoke(error: Error, request: Request, response: Response, next: NextFunction): void {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public static invoke(error: Error, request: Request, response: Response, _next: NextFunction): void {
     const errorStack = htmlEncode(error instanceof Error ? error.stack : 'Unknown error')
       .replace(/\n/g, '<br>')
       .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')

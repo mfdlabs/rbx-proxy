@@ -55,14 +55,14 @@ import * as bodyParser from 'body-parser';
  * This is abstract so that it can't be instantiated.
  */
 export default abstract class WebHelper {
-  private static _baseRoutesPath: string = 'Routes';
+  private static _baseRoutesPath = 'Routes';
   private static _rootProjectPath: string = __dirname;
 
   // log functions
-  private static _logInfo: (message: string, ...args: any[]) => void = null;
-  private static _logWarning: (message: string, ...args: any[]) => void = null;
-  private static _logDebug: (message: string, ...args: any[]) => void = null;
-  private static _logError: (message: string, ...args: any[]) => void = null;
+  private static _logInfo: (message: string, ...args: unknown[]) => void = null;
+  private static _logWarning: (message: string, ...args: unknown[]) => void = null;
+  private static _logDebug: (message: string, ...args: unknown[]) => void = null;
+  private static _logError: (message: string, ...args: unknown[]) => void = null;
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // Header constants
@@ -73,19 +73,20 @@ export default abstract class WebHelper {
   private static readonly _ecPrivateKeyHeader = '-----BEGIN EC PRIVATE KEY-----';
   private static readonly _encryptedPrivateKeyHeader = '-----BEGIN ENCRYPTED PRIVATE KEY-----';
 
+  // eslint-disable-next-line valid-jsdoc
   /**
    * Overrides the log functions.
-   * @param {(message: string, ...args: any[]) => void} logInfo The log info function.
-   * @param {(message: string, ...args: any[]) => void} logWarning The log warning function.
-   * @param {(message: string, ...args: any[]) => void} logDebug The log debug function.
-   * @param {(message: string, ...args: any[]) => void} logError The log error function.
+   * @param {((message: string, ...args: unknown[]) => void)} logInfo The log info function.
+   * @param {((message: string, ...args: unknown[]) => void)} logWarning The log warning function.
+   * @param {((message: string, ...args: unknown[]) => void)} logDebug The log debug function.
+   * @param {((message: string, ...args: unknown[]) => void)} logError The log error function.
    * @returns {void} Nothing.
    */
   public static overrideLoggers(
-    logInfo?: (message: string, ...args: any[]) => void,
-    logWarning?: (message: string, ...args: any[]) => void,
-    logDebug?: (message: string, ...args: any[]) => void,
-    logError?: (message: string, ...args: any[]) => void,
+    logInfo?: (message: string, ...args: unknown[]) => void,
+    logWarning?: (message: string, ...args: unknown[]) => void,
+    logDebug?: (message: string, ...args: unknown[]) => void,
+    logError?: (message: string, ...args: unknown[]) => void,
   ): void {
     this._logInfo = logInfo;
     this._logWarning = logWarning;
@@ -136,7 +137,7 @@ export default abstract class WebHelper {
 
       if (options.allowRoutes) this._mapFileRoutesInternal(options.app, options.routeConfiguration);
     } catch (e) {
-      this._logError?.call(this, `Error occurred when configuring a site! Stack: %s`, e.stack);
+      this._logError?.call(this, 'Error occurred when configuring a site! Stack: %s', e.stack);
     }
   }
 
@@ -175,7 +176,7 @@ export default abstract class WebHelper {
 
       this._tryBind(options.bind).then(([success, reason]) => {
         if (!success) {
-          this._logError?.call(this, `Failed to start the web server! Reason: %s`, reason);
+          this._logError?.call(this, 'Failed to start the web server! Reason: %s', reason);
           return;
         }
 
@@ -187,17 +188,17 @@ export default abstract class WebHelper {
           sslServer = (options.tlsV2 ? spdy : https)
             .createServer(sslConfiguration, options.app)
             .listen(options.tlsPort, options.bind, () =>
-              this._logInfo?.call(this, `SSL Server '%s' started on port %d.`, options.bind, options.tlsPort),
+              this._logInfo?.call(this, 'SSL Server \'%s\' started on port %d.', options.bind, options.tlsPort),
             );
         }
         if (options.insecure)
           insecureServer = options.app.listen(options.insecurePort, options.bind, () =>
-            this._logInfo?.call(this, `Insecure Server '%s' started on port %d.`, options.bind, options.insecurePort),
+            this._logInfo?.call(this, 'Insecure Server \'%s\' started on port %d.', options.bind, options.insecurePort),
           );
         return [insecureServer, sslServer];
       });
     } catch (err) {
-      this._logError?.call(this, `Error occurred when starting a server! Stack: %s`, err.stack);
+      this._logError?.call(this, 'Error occurred when starting a server! Stack: %s', err.stack);
       return [null, null];
     }
   }
@@ -205,7 +206,7 @@ export default abstract class WebHelper {
   private static _tryBind(bind: string): Promise<[boolean, string]> {
     return new Promise((resolve) => {
       const socket = net.createServer();
-      socket.on('error', (err: any) => {
+      socket.on('error', (err: NodeJS.ErrnoException) => {
         let reason = 'Unknown';
 
         switch (err.code) {
@@ -287,7 +288,7 @@ export default abstract class WebHelper {
     }
 
     // Check if empty
-    if (!cert || !key) throw new Error(`The certificate or key file is empty!`);
+    if (!cert || !key) throw new Error('The certificate or key file is empty!');
 
     const sslConfiguration: https.ServerOptions = {
       cert,
@@ -329,7 +330,7 @@ export default abstract class WebHelper {
     });
     server.on('error', (err: Error) => {
       if (err.message.includes('certificate verify failed'))
-        throw new Error(`The certificate key and passphrase are not compatible with the certificate!`);
+        throw new Error('The certificate key and passphrase are not compatible with the certificate!');
     });
     server.listen(0, () => server.close());
 
@@ -343,7 +344,7 @@ export default abstract class WebHelper {
     if (!fs.existsSync(directory)) {
       this._logWarning?.call(
         this,
-        `The directory '%s' for the site '%s' was not found, make sure you configured your directory correctly.`,
+        'The directory \'%s\' for the site \'%s\' was not found, make sure you configured your directory correctly.',
         directory,
         options.debugName,
       );
@@ -361,7 +362,7 @@ export default abstract class WebHelper {
       } catch (error) {
         return this._logError?.call(
           this,
-          "An error occurred when requiring the route file '%s' for the site '%s'. Stack: %s",
+          'An error occurred when requiring the route file \'%s\' for the site \'%s\'. Stack: %s',
           file,
           options.debugName,
           error.stack,
@@ -371,7 +372,7 @@ export default abstract class WebHelper {
       if (!routeModel) {
         this._logWarning?.call(
           this,
-          "The route file '%s' for the site '%s' had no default export.",
+          'The route file \'%s\' for the site \'%s\' had no default export.',
           file,
           options.debugName,
         );
@@ -382,7 +383,7 @@ export default abstract class WebHelper {
       if (!routeCallback || typeof routeCallback !== 'function') {
         this._logWarning?.call(
           this,
-          "The route file '%s' for the site '%s' did not have a valid callback function.",
+          'The route file \'%s\' for the site \'%s\' did not have a valid callback function.',
           file,
           options.debugName,
         );
@@ -422,50 +423,50 @@ export default abstract class WebHelper {
 
       switch (allowedMethod) {
         case 'get':
-          if (options.logSetup) this._logDebug?.call(this, `Mapping 'GET' '%s' for site '%s'`, fqp, options.debugName);
+          if (options.logSetup) this._logDebug?.call(this, 'Mapping \'GET\' \'%s\' for site \'%s\'', fqp, options.debugName);
           application.get(filePath, RejectionWrappedCallback);
           break;
         case 'head':
-          if (options.logSetup) this._logDebug?.call(this, `Mapping 'HEAD' '%s' for site '%s'`, fqp, options.debugName);
+          if (options.logSetup) this._logDebug?.call(this, 'Mapping \'HEAD\' \'%s\' for site \'%s\'', fqp, options.debugName);
           application.head(filePath, RejectionWrappedCallback);
           break;
         case 'post':
-          if (options.logSetup) this._logDebug?.call(this, `Mapping 'POST' '%s' for site '%s'`, fqp, options.debugName);
+          if (options.logSetup) this._logDebug?.call(this, 'Mapping \'POST\' \'%s\' for site \'%s\'', fqp, options.debugName);
           application.post(filePath, RejectionWrappedCallback);
           break;
         case 'put':
-          if (options.logSetup) this._logDebug?.call(this, `Mapping 'PUT' '%s' for site '%s'`, fqp, options.debugName);
+          if (options.logSetup) this._logDebug?.call(this, 'Mapping \'PUT\' \'%s\' for site \'%s\'', fqp, options.debugName);
           application.put(filePath, RejectionWrappedCallback);
           break;
         case 'patch':
           if (options.logSetup)
-            this._logDebug?.call(this, `Mapping 'PATCH' '%s' for site '%s'`, fqp, options.debugName);
+            this._logDebug?.call(this, 'Mapping \'PATCH\' \'%s\' for site \'%s\'', fqp, options.debugName);
           application.patch(filePath, RejectionWrappedCallback);
           break;
         case 'delete':
           if (options.logSetup)
-            this._logDebug?.call(this, `Mapping 'DELETE' '%s' for site '%s'`, fqp, options.debugName);
+            this._logDebug?.call(this, 'Mapping \'DELETE\' \'%s\' for site \'%s\'', fqp, options.debugName);
           application.delete(filePath, RejectionWrappedCallback);
           break;
         case 'options':
           if (options.logSetup)
-            this._logDebug?.call(this, `Mapping 'OPTIONS' '%s' for site '%s'`, fqp, options.debugName);
+            this._logDebug?.call(this, 'Mapping \'OPTIONS\' \'%s\' for site \'%s\'', fqp, options.debugName);
           application.options(filePath, RejectionWrappedCallback);
           break;
         case 'all':
           if (isMiddleware) {
-            if (options.logSetup) this._logDebug?.call(this, `Mapping 'ALL ROUTES' for site '%s'`, options.debugName);
+            if (options.logSetup) this._logDebug?.call(this, 'Mapping \'ALL ROUTES\' for site \'%s\'', options.debugName);
             application.use(RejectionWrappedCallback);
             break;
           }
 
-          if (options.logSetup) this._logDebug?.call(this, `Mapping 'ALL' '%s' for site '%s'`, fqp, options.debugName);
+          if (options.logSetup) this._logDebug?.call(this, 'Mapping \'ALL\' \'%s\' for site \'%s\'', fqp, options.debugName);
           application.all(filePath, RejectionWrappedCallback);
           break;
         default:
           this._logWarning?.call(
             this,
-            `The route file '%s' for the site '%s' had an invalid request method '%s'.`,
+            'The route file \'%s\' for the site \'%s\' had an invalid request method \'%s\'.',
             file,
             options.debugName,
             allowedMethod,
@@ -474,6 +475,6 @@ export default abstract class WebHelper {
       }
     });
 
-    if (options.logSetup) this._logInfo?.call(this, `The site '%s' has %d route(s)`, options.debugName, files.length);
+    if (options.logSetup) this._logInfo?.call(this, 'The site \'%s\' has %d route(s)', options.debugName, files.length);
   }
 }

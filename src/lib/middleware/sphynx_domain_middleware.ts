@@ -20,6 +20,8 @@
     Written by: Nikita Petko
 */
 
+/* eslint-disable @typescript-eslint/naming-convention */
+
 import '@lib/extensions/express/request';
 
 import logger from '@lib/logger';
@@ -49,7 +51,7 @@ export default class SphynxDomainMiddleware {
 
     if (hostname === environment.sphynxDomain) {
       sphynxDomainLogger.information(
-        "Request domain is Sphynx's domain. Trying to find hardcoded response or service name rewrite.",
+        'Request domain is Sphynx\'s domain. Trying to find hardcoded response or service name rewrite.',
       );
       request.fireEvent('SphynxRequest');
 
@@ -57,7 +59,7 @@ export default class SphynxDomainMiddleware {
       const hardcodedResponse = sphynxServiceRewriteReader.getHardcodedResponse(request.method, request.originalUrl);
 
       if (hardcodedResponse) {
-        sphynxDomainLogger.information("Found hardcoded response on path '%s', returning it.", request.originalUrl);
+        sphynxDomainLogger.information('Found hardcoded response on path \'%s\', returning it.', request.originalUrl);
         request.fireEvent('SphynxResponse');
 
         const body =
@@ -66,7 +68,7 @@ export default class SphynxDomainMiddleware {
         response.header({
           ...hardcodedResponse.headers,
 
-          'content-length': Buffer.byteLength(body).toString(),
+          'content-length': Buffer.byteLength(body as string).toString(),
           'x-hardcoded-response-template': hardcodedResponse.template.toString(),
         });
         response.contentType(hardcodedResponse.contentType || 'text/html');

@@ -49,7 +49,7 @@ export default class CrawlerCheckMiddleware {
     if (!environment.shouldCheckCrawler) return next();
 
     if (webUtility.isCrawler(request.headers['user-agent'])) {
-      crawlerCheckLogger.log(`Crawler detected: '%s'`, request.headers['user-agent']);
+      crawlerCheckLogger.log('Crawler detected: \'%s\'', request.headers['user-agent']);
 
       if (environment.abortConnectionIfCrawler) {
         request.socket.destroy();
@@ -60,7 +60,7 @@ export default class CrawlerCheckMiddleware {
       response.contentType('text/html');
       response.status(403);
       response.send(
-        `<html><body><h1>403 Forbidden</h1><p>Crawlers are not allowed to access this site. Please use a browser instead.</p></body></html>`,
+        '<html><body><h1>403 Forbidden</h1><p>Crawlers are not allowed to access this site. Please use a browser instead.</p></body></html>',
       );
       return;
     }

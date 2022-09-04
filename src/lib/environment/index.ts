@@ -14,6 +14,8 @@
    limitations under the License.
 */
 
+/* eslint-disable valid-jsdoc */
+
 /*
     File Name: environment.ts
     Description: A class for loading environment variables from .env files programmatically.
@@ -34,32 +36,52 @@ import * as path from 'path';
 export default abstract class Environment {
   private static _isDockerCached?: boolean = undefined;
 
-  // Trys to get then deserialize the value of the environment variable.
-  private static _getSettingOrDefault<T extends any = any>(
-    setting: string,
+  /**
+   * Tries to get then deserialize the value of the environment variable..
+   *
+   * @param {string} key The key of the environment variable.
+   * @param {(T | (() => T))} [defaultValue] The default value of the environment variable.
+   * @param {boolean=} [reloadEnvironment=true] Whether the environment variable is required.
+   * @returns {T} The value of the environment variable.
+   * @template T The type of the environment variable.
+   * @internal This method is only ingested internally. This is a private method.
+   * @private This method is a private method of the Environment class.
+   * @static
+   * @memberof Environment
+   */
+  private static _getSettingOrDefault<T = unknown>(
+    key: string,
     defaultValue: T | (() => T),
-    reloadEnvironment: boolean = true,
+    reloadEnvironment = true,
   ): T {
-    if (reloadEnvironment) {
-      dotenvLoader.reloadEnvironment();
-    }
+    if (reloadEnvironment) dotenvLoader.reloadEnvironment();
+
+    const value = process.env[key];
 
     switch (typeof defaultValue) {
       case 'boolean':
-        return typeConverters.toBoolean(process.env[setting], defaultValue) as unknown as T;
+        return typeConverters.toBoolean(value, defaultValue) as unknown as T;
       case 'number':
-        return parseInt(process.env[setting] ?? defaultValue?.toString(), 10) as unknown as T;
+        return parseInt(value ?? defaultValue?.toString(), 10) as unknown as T;
       case 'function':
-        return (process.env[setting] as unknown as T) || defaultValue?.call(null);
+        return (value as unknown as T) || defaultValue?.call(null);
       default:
         if (Array.isArray(defaultValue)) {
-          return (process.env[setting]?.split(',') as unknown as T) ?? defaultValue;
+          return (value?.split(',') as unknown as T) ?? defaultValue;
         }
         if (defaultValue instanceof RegExp) {
-          return new RegExp(process.env[setting] ?? defaultValue.source, defaultValue.flags) as unknown as T;
+          return new RegExp(value ?? defaultValue.source, defaultValue.flags) as unknown as T;
+        }
+        if (
+          typeof defaultValue === 'object' &&
+          defaultValue !== null &&
+          defaultValue.constructor === Object &&
+          defaultValue !== undefined
+        ) {
+          return JSON.parse(value ?? JSON.stringify(defaultValue)) as unknown as T;
         }
 
-        return (process.env[setting] as unknown as T) || defaultValue;
+        return (value as unknown as T) || defaultValue;
     }
   }
 
@@ -702,7 +724,7 @@ export default abstract class Environment {
   public static get robloxTestSiteDomainRegex(): RegExp {
     return this._getSettingOrDefault(
       'ROBLOX_TEST_SITE_DOMAIN_REGEX',
-      /(([a-z0-9\.]{0,255})\.)?((site|game)test[1-5])\.(roblox(labs)?|simul(ping|pong|prod))\.(com|local)/gi,
+      /(([a-z0-9.]{0,255})\.)?((site|game)test[1-5])\.(roblox(labs)?|simul(ping|pong|prod))\.(com|local)/gi,
     );
   }
 

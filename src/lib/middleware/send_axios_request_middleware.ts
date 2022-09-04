@@ -50,12 +50,12 @@ export default class SendAxiosRequestMiddleware {
   public static invoke(request: Request, response: Response, next: NextFunction): void {
     const url = request.originalUrl;
     const port = request.localPort;
-    const hostname = request.context.get('hostname');
+    const hostname = request.context.get('hostname') as string;
 
     const uri = `${request.protocol}://${hostname}:${port}${url}`;
 
     sendAxiosRequestLogger.debug(
-      "Proxy request '%s' from client '%s' on upstream hostname '%s' to downstream URI '%s'",
+      'Proxy request \'%s\' from client \'%s\' on upstream hostname \'%s\' to downstream URI \'%s\'',
       request.method,
       request.ip,
       hostname,
@@ -81,7 +81,7 @@ export default class SendAxiosRequestMiddleware {
         ...request.headers,
 
         host: hostname,
-      } as any,
+      } as unknown,
 
       method: request.method,
 
@@ -89,10 +89,11 @@ export default class SendAxiosRequestMiddleware {
 
       url: uri,
 
-      validateStatus: (status: number): boolean => true,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      validateStatus: (_status: number): boolean => true,
 
-      // maxBodyLength: Infinity,
-      // maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
       maxRedirects: 0,
 
       timeout: environment.sendAxiosRequestTimeout,
@@ -107,12 +108,12 @@ export default class SendAxiosRequestMiddleware {
       configuration.headers['X-Real-IP'] = request.realIp;
     }
 
-    const transformedOrigin = request.context.get('transformedOrigin');
+    const transformedOrigin = request.context.get('transformedOrigin') as string;
     if (transformedOrigin) {
       configuration.headers.origin = transformedOrigin;
     }
 
-    const transformedReferer = request.context.get('transformedReferer');
+    const transformedReferer = request.context.get('transformedReferer') as string;
     if (transformedReferer) {
       configuration.headers.referer = transformedReferer;
     }
@@ -211,13 +212,13 @@ export default class SendAxiosRequestMiddleware {
     response: Response,
     next: NextFunction,
   ): void {
-    const timing = Date.now() - request.context.get('startTime');
+    const timing = Date.now() - (request.context.get('startTime') as number);
     const uri = error.config.url;
 
     // Check if error is a timeout
     if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
       sendAxiosRequestLogger.warning(
-        "Proxy timed out from downstream URI '%s' on upstream hostname '%s' after %dms.",
+        'Proxy timed out from downstream URI \'%s\' on upstream hostname \'%s\' after %dms.',
         uri,
         hostname,
         timing,
@@ -230,6 +231,7 @@ export default class SendAxiosRequestMiddleware {
       response.status(504);
 
       response.header({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         'x-downstream-timing': `${timing}ms`,
       });
 
@@ -246,7 +248,7 @@ export default class SendAxiosRequestMiddleware {
     }
 
     sendAxiosRequestLogger.error(
-      "Proxy error '%s' from downstream URI '%s' at upstream hostname '%s' in %dms",
+      'Proxy error \'%s\' from downstream URI \'%s\' at upstream hostname \'%s\' in %dms',
       error.message,
       uri,
       hostname,
@@ -269,10 +271,10 @@ export default class SendAxiosRequestMiddleware {
     next: NextFunction,
   ): void {
     try {
-      const timing = Date.now() - request.context.get('startTime');
+      const timing = Date.now() - (request.context.get('startTime') as number);
 
       sendAxiosRequestLogger.debug(
-        "Proxy response %d (%s) from downstream URI '%s' at upstream hostname '%s' in %dms",
+        'Proxy response %d (%s) from downstream URI \'%s\' at upstream hostname \'%s\' in %dms',
         axiosResponse.status,
         axiosResponse.statusText,
         axiosResponse.config.url,
@@ -367,7 +369,7 @@ export default class SendAxiosRequestMiddleware {
             // Please read RBXPRR-35 for more information.
 
             sendAxiosRequestLogger.error(
-              "Proxy error '%s' from downstream URI '%s' at upstream hostname '%s' in %dms",
+              'Proxy error \'%s\' from downstream URI \'%s\' at upstream hostname \'%s\' in %dms',
               error.message,
               axiosResponse.config.url,
               hostname,
@@ -380,6 +382,7 @@ export default class SendAxiosRequestMiddleware {
 
             response.status(502);
             response.header({
+              // eslint-disable-next-line @typescript-eslint/naming-convention
               'x-downstream-timing': `${timing}ms`,
             });
             response.noCache();

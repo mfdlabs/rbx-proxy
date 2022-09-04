@@ -30,13 +30,13 @@ export default abstract class WebUtility {
    * A regex to match the request User-Agent as a potential bot.
    */
   private static readonly _crawlerRegex =
-    /[Ss]lurp|[Tt]eoma|Scooter|Mercator|MSNBOT|Gulliver|[Ss]pider|[Aa]rchiver|[Cc]rawler|[Bb]ot[) \/_-]|Mediapartners-Google|[Pp]ython-(?=urllib|requests)|c[uU][rR][lL]|wxWidgets|facebookexternalhit|PowerShell|DOSarrest|Feedfetcher|Roblox diag2|BingPreview|Jakarta|LuaSocket|VortaxiaWebflow|ADmantX|A6-Indexer|Dalvik|Roblox\/WinHttp|Roblox\/WinInet$|Java\/1|^Get Request$|XaxisSemanticsClassifier|compatible;\\s+Synapse|^Google favicon$|SkypeUriPreview|[Ll]ynx|[Uu]ptime\\.com|package http|^expo9|WebIndex|ogic[Mm]onitor|HitLeap|StatusCake|statuscake/;
+    /[Ss]lurp|[Tt]eoma|Scooter|Mercator|MSNBOT|Gulliver|[Ss]pider|[Aa]rchiver|[Cc]rawler|[Bb]ot[) /_-]|Mediapartners-Google|[Pp]ython-(?=urllib|requests)|c[uU][rR][lL]|wxWidgets|facebookexternalhit|PowerShell|DOSarrest|Feedfetcher|Roblox diag2|BingPreview|Jakarta|LuaSocket|VortaxiaWebflow|ADmantX|A6-Indexer|Dalvik|Roblox\/WinHttp|Roblox\/WinInet$|Java\/1|^Get Request$|XaxisSemanticsClassifier|compatible;\\s+Synapse|^Google favicon$|SkypeUriPreview|[Ll]ynx|[Uu]ptime\\.com|package http|^expo9|WebIndex|ogic[Mm]onitor|HitLeap|StatusCake|statuscake/;
 
   /**
    * Generates a random UUIDv4 string.
-   * @returns A random UUIDv4 string.
+   * @returns {string} A random UUIDv4 string.
    */
-  public static generateUUIDV4() {
+  public static generateUUIDV4(): string {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
       const r = (Math.random() * 16) | 0;
       const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -46,18 +46,18 @@ export default abstract class WebUtility {
 
   /**
    * Gets the machine ID for the current machine.
-   * @returns	The machine ID for the current machine.
+   * @returns {string}	The machine ID for the current machine.
    */
-  public static getMachineID() {
+  public static getMachineID(): string {
     return process.env.MFDLABS_MACHINE_ID || os.hostname();
   }
 
   /**
    * Determines if the input user-agent is a crawler.
    * @param {string} userAgent The user-agent to check.
-   * @returns True if the user-agent is a crawler, false otherwise.
+   * @returns {boolean} True if the user-agent is a crawler, false otherwise.
    */
-  public static isCrawler(userAgent: string) {
+  public static isCrawler(userAgent: string): boolean {
     return this._crawlerRegex.test(userAgent);
   }
 }

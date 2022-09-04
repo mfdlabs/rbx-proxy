@@ -50,13 +50,14 @@ export default class WanAddressApplicationMiddleware {
     if (publicIp === undefined) {
       publicIp = await net.getPublicIP();
 
-      wanAddressApplicationLogger.information("Public IP Initialized as '%s'", publicIp);
+      wanAddressApplicationLogger.information('Public IP Initialized as \'%s\'', publicIp);
 
       if (!environment.ga4DisableLoggingIPs)
         /* This may be cause controversy */
         request.fireEvent('PublicIPInitalized');
     }
 
+    // eslint-disable-next-line no-prototype-builtins
     if (!request.hasOwnProperty('publicIp')) {
       Object.defineProperty(request, 'publicIp', {
         configurable: false,

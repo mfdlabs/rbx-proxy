@@ -48,5 +48,7 @@ export default interface Route {
    * @param {NextFunction} next The next handler to be called.
    * @returns {any} This can return anything but will most likey be a promise.
    */
-  invoke(request: Request, response: Response, next: NextFunction): any;
+  invoke(request: Request, response: Response, next: NextFunction): unknown;
+
+  // eslint-disable-next-line semi
 }

@@ -49,11 +49,11 @@ export default class DenyLocalAreaNetworkAccessMiddleware {
   public static invoke(request: Request, response: Response, next: NextFunction): void {
     if (!environment.hateLocalAreaNetworkAccess) return next();
 
-    const hostname = request.context.get('hostname');
+    const hostname = request.context.get('hostname') as string;
 
     // We assume these request context variables are set before, as the last middleware
     // should exit the context if they're malformed.
-    const resolvedAddress = request.context.get('resolvedAddress');
+    const resolvedAddress = request.context.get('resolvedAddress') as string;
 
     if (this._isUniqueLocalAddress(resolvedAddress)) {
       this._handleLocalAreaNetworkAccess(hostname, resolvedAddress, request, response);
@@ -77,7 +77,7 @@ export default class DenyLocalAreaNetworkAccessMiddleware {
     response: Response,
   ): void {
     denyLocalAreaNetworkAccessLogger.warning(
-      "Request to '%s' or '%s' is from a LAN, responding with LAN access error",
+      'Request to \'%s\' or \'%s\' is from a LAN, responding with LAN access error',
       hostname,
       resolvedAddres,
     );
@@ -86,7 +86,7 @@ export default class DenyLocalAreaNetworkAccessMiddleware {
     let message = '';
 
     if (hostname === resolvedAddres) {
-      message = `Access to that address is forbidden.`;
+      message = 'Access to that address is forbidden.';
     } else {
       message = `Access to the address that ${htmlEncode(hostname)} resolved to is forbidden.`;
     }

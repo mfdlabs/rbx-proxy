@@ -67,4 +67,6 @@ export default interface ConfigurationOptions {
    * This signifies if we should use the raw buffer as a body.
    */
   rawBufferRequest?: boolean;
+
+  // eslint-disable-next-line semi
 }

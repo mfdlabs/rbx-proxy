@@ -48,7 +48,7 @@ export default class LoggingMiddleware {
     const localIp = this._getLocalIp(request);
 
     loggingMiddlewareLogger.log(
-      `%s request on URI %s://%s:%d%s ('%s') from client '%s' (%s).`,
+      '%s request on URI %s://%s:%d%s (\'%s\') from client \'%s\' (%s).',
       request.method.toUpperCase(),
       request.protocol,
       localIp,

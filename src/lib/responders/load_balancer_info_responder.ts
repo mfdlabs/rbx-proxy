@@ -20,6 +20,8 @@
     Written by: Nikita Petko
 */
 
+/* eslint-disable @typescript-eslint/naming-convention */
+
 import '@lib/extensions/express/response';
 
 import environment from '@lib/environment';
@@ -67,9 +69,9 @@ export default class LoadBalancerInfoResponder {
    */
   public static invoke(
     response: Response,
-    writeCustomResponse: boolean = false,
-    cacheControlHeaders: boolean = true,
-    closeResponse: boolean = false,
+    writeCustomResponse: boolean | undefined = false,
+    cacheControlHeaders: boolean | undefined = true,
+    closeResponse: boolean | undefined = false,
   ): void {
     if (cacheControlHeaders) response.noCache();
 
@@ -100,7 +102,7 @@ export default class LoadBalancerInfoResponder {
     });
 
     if (writeCustomResponse) {
-      response.status(200).send(`mfdlabs/rbx-proxy healthy!`);
+      response.status(200).send('mfdlabs/rbx-proxy healthy!');
       return;
     }
 

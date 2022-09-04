@@ -30,4 +30,4 @@ import { NextFunction, Request, Response } from 'express';
  * @param {NextFunction} next The next function to be invoked.
  * @return {any} This can return anything but will most likely be a promise.
  */
-export type RouteCallbackDelegate = (request: Request, Response: Response, next: NextFunction) => any;
+export type RouteCallbackDelegate = (request: Request, Response: Response, next: NextFunction) => unknown;

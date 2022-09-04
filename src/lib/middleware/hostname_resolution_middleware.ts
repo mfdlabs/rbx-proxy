@@ -65,7 +65,7 @@ export default class HostnameResolutionMiddleware {
 
     const resolvedHostname = await net.resolveHostname(hostname);
 
-    hostnameResolutionLogger.debug("Resolved hostname for '%s' to '%s'.", hostname, resolvedHostname || '<unknown>');
+    hostnameResolutionLogger.debug('Resolved hostname for \'%s\' to \'%s\'.', hostname, resolvedHostname || '<unknown>');
 
     if (typeof resolvedHostname !== 'string' || this._notTruthy(resolvedHostname)) {
       this._handleNxDomain(hostname, request, response);
@@ -89,7 +89,7 @@ export default class HostnameResolutionMiddleware {
 
   private static _handleNxDomain(hostname: string, request: Request, response: Response) {
     hostnameResolutionLogger.warning(
-      "Resolved host for '%s' is undefined or null, responding with invalid hostname error",
+      'Resolved host for \'%s\' is undefined or null, responding with invalid hostname error',
       hostname,
     );
     request.fireEvent('NXDomain');
@@ -131,7 +131,7 @@ export default class HostnameResolutionMiddleware {
     response.contentType('text/html');
     response.noCache();
     response.send(
-      `<html><body><h1>400 Bad Request</h1><p>Cannot satisfy request because the host header is missing.</p></body></html>`,
+      '<html><body><h1>400 Bad Request</h1><p>Cannot satisfy request because the host header is missing.</p></body></html>',
     );
   }
 
@@ -147,7 +147,7 @@ export default class HostnameResolutionMiddleware {
     return hostname.substring(0, portIndex);
   }
 
-  private static _notTruthy(value: any): boolean {
+  private static _notTruthy(value: unknown): boolean {
     return value === undefined || value === null || value === '';
   }
 }
