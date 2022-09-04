@@ -132,7 +132,7 @@ interface CorsRule {
 }
 
 export default abstract class CorsWriter {
-  private static _initialized: boolean = false;
+  private static _initialized = false;
 
   private static _corsRules: CorsRule[] = [];
 

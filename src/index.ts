@@ -194,7 +194,7 @@ if (environment.enableSecureServer) {
 
   if (!fs.existsSync(environment.sslBaseDirectory)) {
     entrypointLogger.error(
-      `The SSL base directory does not exist. Please make sure it exists and is readable. Path: %s`,
+      'The SSL base directory does not exist. Please make sure it exists and is readable. Path: %s',
       environment.sslBaseDirectory,
     );
     throw new Error(`The SSL base directory "${environment.sslBaseDirectory}" does not exist.`);
@@ -205,7 +205,7 @@ if (environment.enableSecureServer) {
 
   if (!fs.existsSync(fullyQualifiedCertificatePath)) {
     entrypointLogger.error(
-      `The SSL certificate file does not exist. Please make sure it exists and is readable. Path: %s`,
+      'The SSL certificate file does not exist. Please make sure it exists and is readable. Path: %s',
       fullyQualifiedCertificatePath,
     );
     throw new Error(`The SSL certificate file "${fullyQualifiedCertificatePath}" does not exist.`);
@@ -213,7 +213,7 @@ if (environment.enableSecureServer) {
 
   if (!fs.existsSync(fullyQualifiedKeyPath)) {
     entrypointLogger.error(
-      `The SSL key file does not exist. Please make sure it exists and is readable. Path: %s`,
+      'The SSL key file does not exist. Please make sure it exists and is readable. Path: %s',
       fullyQualifiedKeyPath,
     );
     throw new Error(`The SSL key file "${fullyQualifiedKeyPath}" does not exist.`);
@@ -237,7 +237,7 @@ if (environment.enableSecureServer) {
 
     if (!fs.existsSync(fullyQualifiedCertificateChainPath)) {
       entrypointLogger.error(
-        `The SSL certificate chain file does not exist. Please make sure it exists and is readable. Path: %s`,
+        'The SSL certificate chain file does not exist. Please make sure it exists and is readable. Path: %s',
         fullyQualifiedCertificateChainPath,
       );
       throw new Error(`The SSL certificate chain file "${fullyQualifiedCertificateChainPath}" does not exist.`);

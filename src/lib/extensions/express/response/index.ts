@@ -14,6 +14,8 @@
    limitations under the License.
 */
 
+/* eslint-disable no-prototype-builtins */
+
 /*
     File Name: index.ts
     Description: Extensions to the express response object.

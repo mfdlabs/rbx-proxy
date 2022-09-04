@@ -35,7 +35,7 @@ export default class OverrideMiddleware {
 
     Object.defineProperty(response, 'end', {
       writable: true,
-      value(this: Response, ...args: any[]) {
+      value(this: Response, ...args: unknown[]) {
         response.getHeaderNames().forEach((headerName: string) => {
           const headerValue = response.getHeader(headerName);
           response.removeHeader(headerName);

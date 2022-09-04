@@ -14,6 +14,9 @@
    limitations under the License.
 */
 
+/* eslint-disable valid-jsdoc */
+/* eslint-disable @typescript-eslint/naming-convention */
+
 import {
   collectorUrl,
   disallowedParameterStartStrings,
@@ -38,7 +41,7 @@ import axios from 'axios';
  */
 export default abstract class GA4 {
   // Determines if the GA client is initialized.
-  private static _initialized: boolean = false;
+  private static _initialized = false;
 
   // The Metrics ID
   private static _metricsId: string;
@@ -47,16 +50,16 @@ export default abstract class GA4 {
   private static _apiSecret: string;
 
   // Determines if server side validation is enabled.
-  private static _serverSideValidation: boolean = false;
+  private static _serverSideValidation = false;
 
   // The info logger function.
-  private static _logInfo: (message: string, ...args: any[]) => void;
+  private static _logInfo: (message: string, ...args: unknown[]) => void;
 
   // The error logger function.
-  private static _logError: (message: string, ...args: any[]) => void;
+  private static _logError: (message: string, ...args: unknown[]) => void;
 
   private static _blockUntilTruthy(value: boolean, timeout: number, message: string) {
-    this._logInfo?.call(this, "GA4: Blocking until '%s' is true.", message);
+    this._logInfo?.call(this, 'GA4: Blocking until \'%s\' is true.', message);
 
     return new Promise<void>((resolve, reject) => {
       const interval = setInterval(() => {
@@ -121,7 +124,7 @@ export default abstract class GA4 {
     if (eventNames.length > 0) {
       this._logError?.call(
         this,
-        "GA4: Event validation failed. Event name(s) '%s' are reserved.",
+        'GA4: Event validation failed. Event name(s) \'%s\' are reserved.',
         eventNames.map((e) => e.name).join(', '),
       );
       return false;
@@ -135,7 +138,7 @@ export default abstract class GA4 {
       if (reservedPropertyNames.length > 0) {
         this._logError?.call(
           this,
-          "GA4: Event validation failed. User property name(s) '%s' are reserved.",
+          'GA4: Event validation failed. User property name(s) \'%s\' are reserved.',
           reservedPropertyNames.join(', '),
         );
         return false;
@@ -148,7 +151,7 @@ export default abstract class GA4 {
       if (disallowedPropertyNames) {
         this._logError?.call(
           this,
-          "GA4: Event validation failed. User property name(s) '%s' are disallowed.",
+          'GA4: Event validation failed. User property name(s) \'%s\' are disallowed.',
           reservedPropertyNames.join(', '),
         );
         return false;
@@ -166,7 +169,7 @@ export default abstract class GA4 {
       if (reservedParamNames.length > 0) {
         this._logError?.call(
           this,
-          "GA4: Event validation failed. Event parameter name(s) '%s' are reserved.",
+          'GA4: Event validation failed. Event parameter name(s) \'%s\' are reserved.',
           reservedParamNames.join(', '),
         );
         return false;
@@ -179,7 +182,7 @@ export default abstract class GA4 {
       if (disallowedParamNames) {
         this._logError?.call(
           this,
-          "GA4: Event validation failed. Event parameter name(s) '%s' are disallowed.",
+          'GA4: Event validation failed. Event parameter name(s) \'%s\' are disallowed.',
           reservedParamNames.join(', '),
         );
         return false;
@@ -244,8 +247,8 @@ export default abstract class GA4 {
    * @returns {void} Nothing.
    */
   public static overrideLoggers(
-    logInfo: (message: string, ...args: any[]) => void,
-    logError: (message: string, ...args: any[]) => void,
+    logInfo: (message: string, ...args: unknown[]) => void,
+    logError: (message: string, ...args: unknown[]) => void,
   ): void {
     this._logInfo?.call(this, 'GA4: Overriding loggers.');
     this._logInfo = logInfo;
@@ -260,7 +263,7 @@ export default abstract class GA4 {
    * @param {boolean} serverSideValidation Whether to perform server side validation.
    * @returns {void} Nothing.
    */
-  public static initialize(metricsId: string, apiSecret: string, serverSideValidation: boolean = false): void {
+  public static initialize(metricsId: string, apiSecret: string, serverSideValidation = false): void {
     if (this._initialized) return;
 
     this._logInfo?.call(this, 'GA4: Initializing Google Analytics client.');
@@ -292,7 +295,7 @@ export default abstract class GA4 {
       this._logError?.call(this, e),
     );
 
-    this._logInfo?.call(this, "GA4: Sending event '%s' to Google Analytics.", eventName);
+    this._logInfo?.call(this, 'GA4: Sending event \'%s\' to Google Analytics.', eventName);
 
     if (!clientId) {
       this._logError?.call(this, 'GA4: Cannot fire event, clientId is not specified.');

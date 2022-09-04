@@ -20,6 +20,9 @@
     Written by: Nikita Petko
 */
 
+/* eslint-disable valid-jsdoc */
+/* eslint-disable @typescript-eslint/adjacent-overload-signatures */
+
 ////////////////////////////////////////////////////////////////////////////////
 // Project imports
 ////////////////////////////////////////////////////////////////////////////////
@@ -182,15 +185,15 @@ export default class Logger {
   /**
    * @internal This is a private member.
    */
-  private _logToConsole: boolean = true;
+  private _logToConsole = true;
   /**
    * @internal This is a private member.
    */
-  private _logToFileSystem: boolean = true;
+  private _logToFileSystem = true;
   /**
    * @internal This is a private member.
    */
-  private _cutLogPrefix: boolean = false;
+  private _cutLogPrefix = false;
 
   //////////////////////////////////////////////////////////////////////////////
   // Private Static Helper Methods
@@ -223,7 +226,7 @@ export default class Logger {
   /**
    * @internal This is a private member.
    */
-  private static _getColorSection(content: any): string {
+  private static _getColorSection(content: unknown): string {
     return util.format('[%s%s%s]', LogColor.BrightBlack, content, LogColor.Reset);
   }
 
@@ -245,7 +248,7 @@ export default class Logger {
   /**
    * @internal This is a private member.
    */
-  private _constructFileLoggerMessage(logLevel: LogLevel, format: string, ...args: any[]): string {
+  private _constructFileLoggerMessage(logLevel: LogLevel, format: string, ...args: unknown[]): string {
     let formattedMessage = util.format(format, ...args);
 
     if (logLevel === LogLevel.Trace) {
@@ -284,7 +287,7 @@ export default class Logger {
   /**
    * @internal This is a private member.
    */
-  private async _logLocally(logLevel: LogLevel, format: string, ...args: any[]): Promise<void> {
+  private async _logLocally(logLevel: LogLevel, format: string, ...args: unknown[]): Promise<void> {
     if (!this._logToFileSystem) return;
 
     this._lockedFileWriteStream?.write(this._constructFileLoggerMessage(logLevel, format, ...args));
@@ -323,7 +326,7 @@ export default class Logger {
   /**
    * @internal This is a private member.
    */
-  private async _logConsole(logLevel: LogLevel, color: LogColor, format: string, ...args: any[]): Promise<void> {
+  private async _logConsole(logLevel: LogLevel, color: LogColor, format: string, ...args: unknown[]): Promise<void> {
     /* istanbul ignore if */
     if (!this._logToConsole) return;
 
@@ -451,11 +454,9 @@ export default class Logger {
     if (!fs.existsSync(Logger._logFileBaseDirectory)) {
       try {
         fs.mkdirSync(Logger._logFileBaseDirectory, { recursive: true });
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof Error) {
-          error = error as NodeJS.ErrnoException;
-
-          if (error.code === 'EPERM' || error.code === 'EACCES') {
+          if ((<NodeJS.ErrnoException>error).code === 'EPERM' || (<NodeJS.ErrnoException>error).code === 'EACCES') {
             this._logToFileSystem = false;
             this.warning(
               'Unable to create log file directory. Please ensure that the current user has permission to create directories.',
@@ -480,7 +481,7 @@ export default class Logger {
    * @param {boolean} override - If true, the log file directory will be cleared regardless of environment variables.
    * @returns {void} - Nothing.
    */
-  public static tryClearLocalLog(override: boolean = false): void {
+  public static tryClearLocalLog(override = false): void {
     Logger.singleton.log('Try clear local log files...');
 
     try {
@@ -554,9 +555,9 @@ export default class Logger {
   public constructor(
     name: string,
     logLevel: LogLevel = LogLevel.Info,
-    logToFileSystem: boolean = true,
-    logToConsole: boolean = true,
-    cutLogPrefix: boolean = true,
+    logToFileSystem = true,
+    logToConsole = true,
+    cutLogPrefix = true,
   ) {
     if (name === undefined || name === null) {
       throw new ReferenceError(invalidConstructorName);
@@ -839,7 +840,7 @@ export default class Logger {
    * @throws {RangeError} - Message supplied must be at least 1 character long.
    * @throws {TypeError} - Arguments supplied must be of type Array. (Spread operator will work.)
    */
-  public async log(message: string | (() => string), ...args: any[]): Promise<void> {
+  public async log(message: string | (() => string), ...args: unknown[]): Promise<void> {
     if (!(this instanceof Logger)) {
       throw new TypeError(thisKeywordIncorrectClosure);
     }
@@ -873,7 +874,7 @@ export default class Logger {
    * @throws {RangeError} - Message supplied must be at least 1 character long.
    * @throws {TypeError} - Arguments supplied must be of type Array. (Spread operator will work.)
    */
-  public async warning(message: string | (() => string), ...args: any[]): Promise<void> {
+  public async warning(message: string | (() => string), ...args: unknown[]): Promise<void> {
     if (!(this instanceof Logger)) {
       throw new TypeError(thisKeywordIncorrectClosure);
     }
@@ -908,7 +909,7 @@ export default class Logger {
    * @throws {RangeError} - Message supplied must be at least 1 character long.
    * @throws {TypeError} - Arguments supplied must be of type Array. (Spread operator will work.)
    */
-  public async trace(message: string | (() => string), ...args: any[]): Promise<void> {
+  public async trace(message: string | (() => string), ...args: unknown[]): Promise<void> {
     if (!(this instanceof Logger)) {
       throw new TypeError(thisKeywordIncorrectClosure);
     }
@@ -942,7 +943,7 @@ export default class Logger {
    * @throws {RangeError} - Message supplied must be at least 1 character long.
    * @throws {TypeError} - Arguments supplied must be of type Array. (Spread operator will work.)
    */
-  public async debug(message: string | (() => string), ...args: any[]): Promise<void> {
+  public async debug(message: string | (() => string), ...args: unknown[]): Promise<void> {
     if (!(this instanceof Logger)) {
       throw new TypeError(thisKeywordIncorrectClosure);
     }
@@ -976,7 +977,7 @@ export default class Logger {
    * @throws {RangeError} - Message supplied must be at least 1 character long.
    * @throws {TypeError} - Arguments supplied must be of type Array. (Spread operator will work.)
    */
-  public async information(message: string | (() => string), ...args: any[]): Promise<void> {
+  public async information(message: string | (() => string), ...args: unknown[]): Promise<void> {
     if (!(this instanceof Logger)) {
       throw new TypeError(thisKeywordIncorrectClosure);
     }
@@ -1010,7 +1011,7 @@ export default class Logger {
    * @throws {RangeError} - Message supplied must be at least 1 character long.
    * @throws {TypeError} - Arguments supplied must be of type Array. (Spread operator will work.)
    */
-  public async error(message: string | (() => string), ...args: any[]): Promise<void> {
+  public async error(message: string | (() => string), ...args: unknown[]): Promise<void> {
     if (!(this instanceof Logger)) {
       throw new TypeError(thisKeywordIncorrectClosure);
     }

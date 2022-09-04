@@ -38,7 +38,7 @@ const ga4logger = new logger(
  * A wrapper class for the GA4 client.
  */
 export default abstract class GoogleAnalytics {
-  private static _isInitialized: boolean = false;
+  private static _isInitialized = false;
   private static _clientId = net.getLocalIPv4();
 
   public static initialize(): void {

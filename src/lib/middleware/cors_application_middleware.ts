@@ -55,7 +55,7 @@ export default class CorsApplicationMiddleware {
 
     if (origin || environment.corsApplyHeadersRegardlessOfOriginHeader) {
       corsApplicationMiddlewareLogger.information(
-        "Try apply CORs headers to the response with origin '%s'.",
+        'Try apply CORs headers to the response with origin \'%s\'.',
         origin || '<none>',
       );
       request.fireEvent('ApplyCorsHeaders', origin || '<none>');

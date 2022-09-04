@@ -48,7 +48,7 @@ declare global {
        * @type {Map<string, any>}
        * @memberof Request
        */
-      get context(): Map<string, any>;
+      get context(): Map<string, unknown>;
 
       /**
        * Fires a google analytics event.

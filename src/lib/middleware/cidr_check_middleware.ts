@@ -56,7 +56,7 @@ export default class CidrCheckMiddleware {
       !net.isIPv4InCidrRangeList(request.ip, allowedIPv4Cidrs) &&
       !net.isIPv6InCidrRangeList(request.ip, allowedIPv6Cidrs)
     ) {
-      cidrCheckLogger.log(`IP '%s' is not in allowed CIDR list`, request.ip);
+      cidrCheckLogger.log('IP \'%s\' is not in allowed CIDR list', request.ip);
 
       if (environment.abortConnectionIfInvalidIP) {
         request.socket.destroy();
@@ -67,7 +67,7 @@ export default class CidrCheckMiddleware {
       response.contentType('text/html');
       response.status(403);
       response.send(
-        `<html><body><h1>403 Forbidden</h1><p>IP Address validation failed. Your IP address is not allowed to access this site.</p></body></html>`,
+        '<html><body><h1>403 Forbidden</h1><p>IP Address validation failed. Your IP address is not allowed to access this site.</p></body></html>',
       );
 
       return;

@@ -38,14 +38,14 @@ export default abstract class TypeConverters {
    * Convert.ToBoolean('1'); // true
    * Convert.ToBoolean('0'); // false
    * ```
-   * @param {any} value The value to be converted.
+   * @param {unknown} value The value to be converted.
    * @param {boolean} defaultValue The default value to be returned if the given value cannot be converted to a boolean.
    * @returns {boolean} The converted value.
    */
-  public static toBoolean(value: any, defaultValue?: boolean): boolean {
+  public static toBoolean(value: unknown, defaultValue?: boolean): boolean {
     if (typeof value === 'boolean') return value;
 
-    const valueAsNumber = parseInt(value, 10);
+    const valueAsNumber = parseInt(value as string, 10);
 
     if (!isNaN(valueAsNumber)) {
       return valueAsNumber > 0;
@@ -55,7 +55,7 @@ export default abstract class TypeConverters {
     value = typeof value === 'string' ? value.toLowerCase() : null;
     if (value === null) return defaultReturn;
     try {
-      return JSON.parse(value);
+      return JSON.parse(value as string);
     } catch {
       return defaultReturn;
     }

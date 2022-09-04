@@ -114,7 +114,7 @@ export default class ReverseProxyMiddleware {
     this._defineProperty(request, 'localPort', port);
   }
 
-  private static _defineProperty(request: Request, property: string, value: any): void {
+  private static _defineProperty(request: Request, property: string, value: unknown): void {
     Object.defineProperty(request, property, {
       configurable: true,
       enumerable: true,

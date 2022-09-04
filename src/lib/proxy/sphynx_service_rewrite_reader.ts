@@ -30,13 +30,13 @@ interface SphynxHardcodeRewrite {
   template: RegExp | string;
   method: string;
   headers: { [key: string]: string };
-  body: any;
+  body: unknown;
   contentType: string;
   statusCode: number;
 }
 
 export default abstract class SphynxServiceRewriteReader {
-  private static _initialized: boolean = false;
+  private static _initialized = false;
 
   private static _rewriteRules: { [key: string]: string } = {};
   private static _hardcodedResponseRules: SphynxHardcodeRewrite[] = [];
@@ -71,6 +71,7 @@ export default abstract class SphynxServiceRewriteReader {
 
     // Validate the rewrite rules.
     for (const key in this._rewriteRules) {
+      // eslint-disable-next-line no-prototype-builtins
       if (!this._rewriteRules.hasOwnProperty(key)) continue;
 
       if (this._rewriteRules[key] === '') {
@@ -103,13 +104,14 @@ export default abstract class SphynxServiceRewriteReader {
 
     for (const rule of this._hardcodedResponseRules) {
       if (!rule.template) {
-        throw new Error(`Hardcoded response rule is missing template.`);
+        throw new Error('Hardcoded response rule is missing template.');
       }
       if (typeof rule.template === 'string') {
         rule.template = new RegExp(rule.template);
       }
 
       for (const key in rule.headers) {
+        // eslint-disable-next-line no-prototype-builtins
         if (!rule.headers.hasOwnProperty(key)) continue;
 
         if (typeof rule.headers[key] !== 'string' && typeof rule.headers[key] !== 'number') {
@@ -118,14 +120,14 @@ export default abstract class SphynxServiceRewriteReader {
       }
 
       if (typeof rule.contentType !== 'string') {
-        throw new Error(`Hardcoded response rule content type is not a string.`);
+        throw new Error('Hardcoded response rule content type is not a string.');
       }
 
       if (rule.statusCode === undefined) {
         rule.statusCode = 200;
       }
       if (typeof rule.statusCode !== 'number' || isNaN(rule.statusCode)) {
-        throw new Error(`Hardcoded response rule status code is not a number.`);
+        throw new Error('Hardcoded response rule status code is not a number.');
       }
 
       if (!rule.method) {
@@ -171,6 +173,7 @@ export default abstract class SphynxServiceRewriteReader {
   /**
    * Gets the hardcoded response for the given url.
    *
+   * @param {string} method The HTTP method.
    * @param {string} url The url to get the hardcoded response for.
    * @returns {SphynxHardcodeRewrite} The hardcoded response.
    */

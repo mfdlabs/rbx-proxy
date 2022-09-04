@@ -47,8 +47,8 @@ export default class DenyLoopbackAttackMiddleware {
    * @returns {void} Nothing.
    */
   public static invoke(request: Request, response: Response, next: NextFunction): void {
-    const hostname = request.context.get('hostname');
-    const resolvedAddress = request.context.get('resolvedAddress');
+    const hostname = request.context.get('hostname') as string;
+    const resolvedAddress = request.context.get('resolvedAddress') as string;
 
     if (this._isConsideredLoopback(resolvedAddress, request.publicIp)) {
       this._handleLoopbackAttack(hostname, resolvedAddress, request, response);
@@ -72,7 +72,7 @@ export default class DenyLoopbackAttackMiddleware {
     response: Response,
   ): void {
     denyLoopbackAttackLogger.warning(
-      "Request to '%s' or '%s' is a loopback, responding with loopback error",
+      'Request to \'%s\' or \'%s\' is a loopback, responding with loopback error',
       hostname,
       resolvedAddress,
     );
