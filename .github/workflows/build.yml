@@ -18,7 +18,7 @@ on:
 
 jobs:
   lint-ci:
-    name: TSLint CI
+    name: ESLint CI
     if: "!contains(toJSON(github.event.commits.*.message), '[SKIP BUILD]')"
     runs-on: ubuntu-latest
     steps:
