@@ -33,7 +33,7 @@
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-jsdoc": "^39.3.6",
     "prettier": "^2.7.1",
-    "typescript": "^4.8.2"
+    "typescript": "^4.8.3"
   },
   "dependencies": {
     "@mfdlabs/net": "^1.0.6",
