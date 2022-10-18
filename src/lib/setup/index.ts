@@ -42,7 +42,7 @@ import { RouteCallbackDelegate } from './custom_types/route_callback_delegate';
 
 import * as fs from 'fs';
 import * as net from 'net';
-import * as spdy from 'spdy';
+// import * as spdy from 'spdy';
 import * as path from 'path';
 import * as http from 'http';
 import * as https from 'https';
@@ -185,8 +185,7 @@ export default abstract class WebHelper {
 
           const sslConfiguration = this._verifyCertificate(options);
 
-          sslServer = (options.tlsV2 ? spdy : https)
-            .createServer(sslConfiguration, options.app)
+          sslServer = https.createServer(sslConfiguration, options.app)
             .listen(options.tlsPort, options.bind, () =>
               this._logInfo?.call(this, 'SSL Server \'%s\' started on port %d.', options.bind, options.tlsPort),
             );
@@ -325,7 +324,7 @@ export default abstract class WebHelper {
 
     if (options.passphrase) sslConfiguration.passphrase = options.passphrase;
 
-    const server = (options.tlsV2 ? spdy : https).createServer(sslConfiguration, () => {
+    const server = https.createServer(sslConfiguration, () => {
       // Do nothing.
     });
     server.on('error', (err: Error) => {
