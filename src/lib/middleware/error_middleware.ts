@@ -23,8 +23,12 @@
 import '@lib/extensions/express/response';
 
 import googleAnalytics from '@lib/utility/google_analytics';
+import sentryEnvironment from '@lib/environment/sentry_environment';
+import loadBalancerResponder from '@lib/responders/load_balancer_responder';
+import errorMiddlewareLogger from '@lib/loggers/middleware/error_middleware_logger';
+import * as errorMiddlewareMetrics from '@lib/metrics/middleware/error_middleware_metrics';
 
-import htmlEncode from 'escape-html';
+import * as Sentry from '@sentry/node';
 import { NextFunction, Request, Response } from 'express';
 
 export default class ErrorMiddleware {
@@ -36,22 +40,41 @@ export default class ErrorMiddleware {
    * @param {NextFunction} _next The next function to call.
    * @returns {void} Nothing.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public static invoke(error: Error, request: Request, response: Response, _next: NextFunction): void {
-    const errorStack = htmlEncode(error instanceof Error ? error.stack : 'Unknown error')
-      .replace(/\n/g, '<br>')
-      .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
-      .replace(/ /g, '&nbsp;');
-    const encodedUri = htmlEncode(`${request.protocol}://${request.hostname}${request.originalUrl}`);
+    const errorStack = error instanceof Error ? error.stack : 'Unknown error';
+    const uri = `${request.protocol}://${request.hostname}${request.originalUrl}`;
+
+    errorMiddlewareLogger.error(
+      'An error occurred while processing a request on URI %s://%s:%d%s (%s): %s',
+      request.protocol,
+      request.hostname,
+      request.socket.localPort,
+      request.path,
+      request.ip,
+      errorStack,
+    );
+
+    errorMiddlewareMetrics.errorCounter.inc({
+      method: request.method,
+      hostname: request.headers.host || 'No Host Header',
+      endpoint: request.path,
+      caller: request.ip,
+    });
 
     // Log the error
-    googleAnalytics.fireServerEventGA4('Server', 'Error', error?.stack ?? 'Unknown error');
+    googleAnalytics.fireServerEventGA4('Server', 'Error', errorStack);
 
-    response.noCache();
-    response.contentType('text/html');
-    response.status(500);
-    response.send(
-      `<html><body><h1>500 Internal Server Error</h1><p>An error occurred when sending a request to the upstream URI: ${encodedUri}</p><p><b>${errorStack}</b></p></body></html>`,
+    if (sentryEnvironment.singleton.sentryEnabled) Sentry.captureException(error);
+
+    loadBalancerResponder.sendMessage(
+      `An error occurred when sending a request to the upstream URI: ${uri}`,
+      request,
+      response,
+      500,
+      undefined,
+      true,
+      undefined,
+      [[true, errorStack]],
     );
   }
 }

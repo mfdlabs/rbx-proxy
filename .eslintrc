@@ -8,17 +8,9 @@
     "plugin:@typescript-eslint/recommended"
   ],
   "rules": {
-    "semi": ["error", "always"],
-    "quotes": ["error", "single"],
     "comma-dangle": ["error", "always-multiline"],
     "@typescript-eslint/naming-convention": [
       "error",
-      {
-        "selector": "property",
-        "format": ["camelCase", "snake_case", "UPPER_CASE"],
-        "leadingUnderscore": "allow",
-        "trailingUnderscore": "allow"
-      },
       {
         "selector": "interface",
         "format": ["PascalCase"],
@@ -28,18 +20,14 @@
         }
       }
     ],
-    "valid-jsdoc": [
-      "error",
-      {
-        "requireReturn": false,
-        "requireReturnType": true,
-        "requireParamDescription": false,
-        "requireReturnDescription": false
-      }
-    ],
+    "valid-jsdoc": "off",
     "no-console": "off",
     "no-bitwise": "off",
     "@typescript-eslint/no-dupe-class-members": "off",
-    "eol-last": ["error", "always"]
+    "eol-last": ["error", "always"],
+    "no-prototype-builtins": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/no-inferrable-types": "off"
   }
 }

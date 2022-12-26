@@ -22,19 +22,11 @@
 
 import '@lib/extensions/express/request';
 
-import logger from '@lib/logger';
-import environment from '@lib/environment';
+import loggingMiddlewareLogger from '@lib/loggers/middleware/logging_middleware_logger';
+import * as loggingMiddlewareMetrics from '@lib/metrics/middleware/logging_middleware_metrics';
 
 import net from '@mfdlabs/net';
 import { NextFunction, Request, Response } from 'express';
-
-const loggingMiddlewareLogger = new logger(
-  'logging-middleware',
-  environment.logLevel,
-  environment.logToFileSystem,
-  environment.logToConsole,
-  environment.loggerCutPrefix,
-);
 
 export default class LoggingMiddleware {
   /**
@@ -48,16 +40,23 @@ export default class LoggingMiddleware {
     const localIp = this._getLocalIp(request);
 
     loggingMiddlewareLogger.log(
-      '%s request on URI %s://%s:%d%s (\'%s\') from client \'%s\' (%s).',
+      "%s request on URI %s://%s:%d%s ('%s') from client '%s' (%s).",
       request.method.toUpperCase(),
       request.protocol,
       localIp,
       request.localPort,
-      request.originalUrl,
+      request.path,
       request.headers.host || 'No Host Header',
       this._getTruncatedUserAgent(request.headers['user-agent']),
       request.ip,
     );
+
+    loggingMiddlewareMetrics.requestCounter.inc({
+      method: request.method,
+      hostname: request.headers.host || 'No Host Header',
+      endpoint: request.path,
+      caller: request.ip,
+    });
 
     next();
   }

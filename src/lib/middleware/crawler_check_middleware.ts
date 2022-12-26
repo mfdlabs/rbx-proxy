@@ -23,19 +23,13 @@
 
 import '@lib/extensions/express/response';
 
-import logger from '@lib/logger';
-import environment from '@lib/environment';
 import webUtility from '@lib/utility/web_utility';
+import crawlerEnvironment from '@lib/environment/crawler_environment';
+import loadBalancerResponder from '@lib/responders/load_balancer_responder';
+import crawlerCheckMiddlewareLogger from '@lib/loggers/middleware/crawler_check_middleware_logger';
+import * as crawlerCheckMiddlewareMetrics from '@lib/metrics/middleware/crawler_check_middleware_metrics';
 
 import { NextFunction, Request, Response } from 'express';
-
-const crawlerCheckLogger = new logger(
-  'crawler-check-middleware',
-  environment.logLevel,
-  environment.logToFileSystem,
-  environment.logToConsole,
-  environment.loggerCutPrefix,
-);
 
 export default class CrawlerCheckMiddleware {
   /**
@@ -46,22 +40,25 @@ export default class CrawlerCheckMiddleware {
    * @returns {void} Nothing.
    */
   public static invoke(request: Request, response: Response, next: NextFunction): void {
-    if (!environment.shouldCheckCrawler) return next();
+    if (!crawlerEnvironment.singleton.shouldCheckCrawler) return next();
 
     if (webUtility.isCrawler(request.headers['user-agent'])) {
-      crawlerCheckLogger.log('Crawler detected: \'%s\'', request.headers['user-agent']);
+      crawlerCheckMiddlewareLogger.log("Crawler detected: '%s'", request.headers['user-agent']);
 
-      if (environment.abortConnectionIfCrawler) {
+      crawlerCheckMiddlewareMetrics.callersThatAreCrawlers.inc({ caller: request.ip, user_agent: request.headers['user-agent'] });
+
+      if (crawlerEnvironment.singleton.abortConnectionIfCrawler) {
         request.socket.destroy();
         return;
       }
 
-      response.noCache();
-      response.contentType('text/html');
-      response.status(403);
-      response.send(
-        '<html><body><h1>403 Forbidden</h1><p>Crawlers are not allowed to access this site. Please use a browser instead.</p></body></html>',
+      loadBalancerResponder.sendMessage(
+        'Crawlers are not allowed to access this site. Please use a browser instead.',
+        request,
+        response,
+        403,
       );
+
       return;
     }
 

@@ -23,20 +23,13 @@
 import '@lib/extensions/express/request';
 import '@lib/extensions/express/response';
 
-import logger from '@lib/logger';
-import environment from '@lib/environment';
+import loadBalancerResponder from '@lib/responders/load_balancer_responder';
+import hardcodedResponseWriter from '@lib/writers/hardcoded_response_writer';
+import denyLoopbackAttackMiddlewareLogger from '@lib/loggers/middleware/deny_loopback_attack_middleware_logger';
+import * as denyLoopbackAttackMiddlewareMetrics from '@lib/metrics/middleware/deny_loopback_attack_middleware_metrics';
 
 import net from '@mfdlabs/net';
-import htmlEncode from 'escape-html';
 import { NextFunction, Request, Response } from 'express';
-
-const denyLoopbackAttackLogger = new logger(
-  'deny-loopback-attack-middleware',
-  environment.logLevel,
-  environment.logToFileSystem,
-  environment.logToConsole,
-  environment.loggerCutPrefix,
-);
 
 export default class DenyLoopbackAttackMiddleware {
   /**
@@ -50,13 +43,17 @@ export default class DenyLoopbackAttackMiddleware {
     const hostname = request.context.get('hostname') as string;
     const resolvedAddress = request.context.get('resolvedAddress') as string;
 
-    if (this._isConsideredLoopback(resolvedAddress, request.publicIp)) {
+    if (this._isConsideredLoopback(resolvedAddress, request.publicIp) && !hardcodedResponseWriter.hasRule(request)) {
+      denyLoopbackAttackMiddlewareMetrics.resolvedHostnamesThatWereConsideredLoopback.inc({ hostname: hostname });
+
       this._handleLoopbackAttack(hostname, resolvedAddress, request, response);
       return;
     }
 
     if (this._isIp(hostname)) {
-      if (this._isConsideredLoopback(hostname, request.publicIp)) {
+      if (this._isConsideredLoopback(hostname, request.publicIp) && !hardcodedResponseWriter.hasRule(request)) {
+        denyLoopbackAttackMiddlewareMetrics.resolvedHostnamesThatWereConsideredLoopback.inc({ hostname: hostname });
+
         this._handleLoopbackAttack(hostname, hostname, request, response);
         return;
       }
@@ -71,21 +68,25 @@ export default class DenyLoopbackAttackMiddleware {
     request: Request,
     response: Response,
   ): void {
-    denyLoopbackAttackLogger.warning(
-      'Request to \'%s\' or \'%s\' is a loopback, responding with loopback error',
+    denyLoopbackAttackMiddlewareLogger.warning(
+      "Request to '%s' or '%s' is a loopback, responding with loopback error",
       hostname,
       resolvedAddress,
     );
     request.fireEvent('LoopbackAttack');
 
-    const encodedClientIp = htmlEncode(request.ip);
-    const encodedHostname = htmlEncode(hostname);
+    denyLoopbackAttackMiddlewareMetrics.requestsThatWereDenied.inc({
+      method: request.method,
+      hostname: hostname,
+      endpoint: request.path,
+      caller: request.ip,
+    });
 
-    response.status(403);
-    response.contentType('text/html');
-    response.noCache();
-    response.send(
-      `<html><body><h1>403 Forbidden</h1><p>Loopback detected from upstream client '${encodedClientIp}' to downstream server '${encodedHostname}'.</p></body></html>`,
+    loadBalancerResponder.sendMessage(
+      `Loopback detected from downstream client '${request.ip}' to upstream server '${hostname}'.`,
+      request,
+      response,
+      403
     );
   }
 

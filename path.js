@@ -23,11 +23,12 @@
 */
 
 const fs = require('fs');
+const path = require('path');
 
 (function () {
   try {
-    const dir = __dirname.split('\\').join('/');
-    const fileName = `${__dirname}/src/lib/directories.ts`;
+    const dir = __dirname.replace(/\\/g, '\\\\');
+    const fileName = path.resolve(__dirname, 'src', 'lib', 'directories.ts');
     if (!fs.existsSync(fileName)) {
       fs.writeFileSync(
         fileName,
@@ -38,7 +39,7 @@ const fs = require('fs');
     let contents = fs.readFileSync(fileName, { encoding: 'utf-8' });
     if (contents.includes('// !DISABLE-AUTO-SELECT-DIR')) {
       console.log(
-        `The file ./src/lib/directories.ts was forced to not select the current directory. Most likely because it's already been generated.`,
+        `The file ${fileName} was forced to not select the current directory. Most likely because it's already been generated.`,
       );
       return;
     }

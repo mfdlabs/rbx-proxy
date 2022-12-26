@@ -28,12 +28,13 @@ export default class BeginTimingMiddleware {
   /**
    * Invokes the middleware.
    * @param {Request} request The request object.
-   * @param {Response} response The response object.
+   * @param {Response} _response The response object.
    * @param {NextFunction} next The next function to call.
    * @returns {void} Nothing.
    */
-  public static invoke(request: Request, response: Response, next: NextFunction): void {
+  public static invoke(request: Request, _response: Response, next: NextFunction): void {
     request.context.set('startTime', Date.now());
+
     next();
   }
 }

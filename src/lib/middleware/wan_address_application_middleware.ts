@@ -16,27 +16,22 @@
 
 /*
     File Name: wan_address_application_middleware.ts
-    Description: A middleware that sets the WAN address of the request. The WAN address is only initialized once, but the property is applied to the request object every time the middleware is called.
+    Description: A middleware that sets the WAN address of the request. 
+                 The WAN address is only initialized once, 
+                 but the property is applied to the request object every time the middleware is called.
     Written by: Nikita Petko
 */
 
 import '@lib/extensions/express/request';
 
-import logger from '@lib/logger';
-import environment from '@lib/environment';
+import ga4Environment from '@lib/environment/ga4_environment';
+import wanAddressApplicationMiddlewareLogger from '@lib/loggers/middleware/wan_address_application_middleware_logger';
+import * as wanAddressApplicationMiddlewareMetrics from '@lib/metrics/middleware/wan_address_application_middleware_metrics';
 
 import net from '@mfdlabs/net';
 import { NextFunction, Request, Response } from 'express';
 
-const wanAddressApplicationLogger = new logger(
-  'wan-address-application-middleware',
-  environment.logLevel,
-  environment.logToFileSystem,
-  environment.logToConsole,
-  environment.loggerCutPrefix,
-);
-
-let publicIp: string;
+let wanIp: string;
 
 export default class WanAddressApplicationMiddleware {
   /**
@@ -46,24 +41,25 @@ export default class WanAddressApplicationMiddleware {
    * @param {NextFunction} next The next function to call.
    * @returns {void} Nothing.
    */
-  public static async invoke(request: Request, response: Response, next: NextFunction): Promise<void> {
-    if (publicIp === undefined) {
-      publicIp = await net.getPublicIP();
+  public static async invoke(request: Request, _response: Response, next: NextFunction): Promise<void> {
+    if (wanIp === undefined) {
+      wanIp = await net.getPublicIP();
 
-      wanAddressApplicationLogger.information('Public IP Initialized as \'%s\'', publicIp);
+      wanAddressApplicationMiddlewareLogger.information("Public IP Initialized as '%s'", wanIp);
 
-      if (!environment.ga4DisableLoggingIPs)
+      if (!ga4Environment.singleton.ga4DisableLoggingIPs)
         /* This may be cause controversy */
         request.fireEvent('PublicIPInitalized');
     }
 
-    // eslint-disable-next-line no-prototype-builtins
     if (!request.hasOwnProperty('publicIp')) {
       Object.defineProperty(request, 'publicIp', {
         configurable: false,
         enumerable: true,
-        get: () => publicIp,
+        get: () => wanIp,
       });
+
+      wanAddressApplicationMiddlewareMetrics.wanAddressGuage.set({ ip: wanIp }, 1);
     }
 
     next();

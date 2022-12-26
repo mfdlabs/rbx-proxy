@@ -24,8 +24,12 @@
 // Top Level Declarations
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+import 'source-map-support/register';
+
 import './import_handler';
 import './stdin_handler';
+
+import '@lib/environment/register';
 
 import dotenvLoader from '@lib/environment/dotenv_loader';
 dotenvLoader.reloadEnvironment();
@@ -40,8 +44,10 @@ googleAnalytics.initialize();
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import web from '@lib/setup';
-import logger from '@lib/logger';
-import environment from '@lib/environment';
+import setupLogger from '@lib/loggers/setup_logger';
+import webEnvironment from '@lib/environment/web_environment';
+import entrypointLogger from '@lib/loggers/entrypoint_logger';
+import sentryEnvironment from '@lib/environment/sentry_environment';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Type Declarations
@@ -54,19 +60,22 @@ import startupOptions from '@lib/setup/options/startup_options';
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import errorMiddleware from '@lib/middleware/error_middleware';
+import configMiddleware from '@lib/middleware/config_middleware';
 import loggingMiddleware from '@lib/middleware/logging_middleware';
+import metricsMiddleware from '@lib/middleware/metrics_middleware';
 import overrideMiddleware from '@lib/middleware/override_middleware';
 import cidrCheckMiddleware from '@lib/middleware/cidr_check_middleware';
 import beginTimingMiddleware from '@lib/middleware/begin_timing_middleware';
-import healthCheckMiddleware from '@lib/middleware/health_check_middleware';
-import sphynxDomainMiddleware from '@lib/middleware/sphynx_domain_middleware';
+import healthcheckMiddleware from '@lib/middleware/healthcheck_middleware';
 import crawlerCheckMiddleware from '@lib/middleware/crawler_check_middleware';
 import reverseProxyMiddleware from '@lib/middleware/reverse_proxy_middleware';
+import testExceptionMiddleware from '@lib/middleware/test_exception_middleware';
 import corsApplicationMiddleware from '@lib/middleware/cors_application_middleware';
 import sendAxiosRequestMiddleware from '@lib/middleware/send_axios_request_middleware';
 import loadBalancerInfoMiddleware from '@lib/middleware/load_balancer_info_middleware';
-import denyLoopbackAttackMiddleware from '@lib/middleware/deny_loopback_attack_middleware';
+import hardcodedResponseMiddleware from '@lib/middleware/hardcoded_response_middleware';
 import hostnameResolutionMiddleware from '@lib/middleware/hostname_resolution_middleware';
+import denyLoopbackAttackMiddleware from '@lib/middleware/deny_loopback_attack_middleware';
 import wanAddressApplicationMiddleware from '@lib/middleware/wan_address_application_middleware';
 import denyLocalAreaNetworkAccessMiddleware from '@lib/middleware/deny_local_area_network_access_middleware';
 
@@ -77,17 +86,13 @@ import denyLocalAreaNetworkAccessMiddleware from '@lib/middleware/deny_local_are
 import * as fs from 'fs';
 import * as path from 'path';
 import express from 'express';
+import * as Sentry from '@sentry/node';
 import * as bodyParser from 'body-parser';
+import * as Prometheus from 'prom-client';
+import * as Tracing from '@sentry/tracing';
+import environment from '@mfdlabs/environment';
 
 Error.stackTraceLimit = Infinity;
-
-const entrypointLogger = new logger(
-  'entrypoint',
-  environment.logLevel,
-  environment.logToFileSystem,
-  environment.logToConsole,
-  environment.loggerCutPrefix,
-);
 
 // We want to try and not hard code these values.
 // In the future we should have an environment variable for the passphrase
@@ -97,6 +102,28 @@ const settings = {} as startupOptions;
 googleAnalytics.fireServerEventGA4('Server', 'Start');
 
 const proxyServer = express();
+
+if (sentryEnvironment.singleton.sentryEnabled) {
+  entrypointLogger.debug('Sentry enabled, using %s as DSN.', sentryEnvironment.singleton.sentryClientDsn);
+
+  Sentry.init({
+    dsn: sentryEnvironment.singleton.sentryClientDsn,
+    attachStacktrace: true,
+    tracesSampleRate: 1.0,
+    sampleRate: 1.0,
+    integrations: [
+      new Sentry.Integrations.Http({ tracing: true }),
+
+      new Tracing.Integrations.Express({
+        app: proxyServer,
+      }),
+    ],
+  });
+
+  Tracing.addExtensionMethods();
+}
+
+Prometheus.collectDefaultMetrics({ register: Prometheus.register });
 
 // Make sure it uses body-parser.raw() to parse the body as a Buffer.
 proxyServer.use(
@@ -117,39 +144,34 @@ proxyServer.use(
 
 entrypointLogger.information('Loading middleware...');
 
+if (sentryEnvironment.singleton.sentryEnabled) {
+  proxyServer.use(Sentry.Handlers.requestHandler());
+  proxyServer.use(Sentry.Handlers.tracingHandler());
+}
+
 proxyServer.use(overrideMiddleware.invoke.bind(overrideMiddleware));
 proxyServer.use(reverseProxyMiddleware.invoke.bind(reverseProxyMiddleware));
 proxyServer.use(loggingMiddleware.invoke.bind(loggingMiddleware));
 proxyServer.use(cidrCheckMiddleware.invoke.bind(cidrCheckMiddleware));
 proxyServer.use(crawlerCheckMiddleware.invoke.bind(crawlerCheckMiddleware));
 proxyServer.use(loadBalancerInfoMiddleware.invoke.bind(loadBalancerInfoMiddleware));
-proxyServer.use(healthCheckMiddleware.invoke.bind(healthCheckMiddleware));
+proxyServer.use(metricsMiddleware.invoke.bind(metricsMiddleware));
+proxyServer.use(configMiddleware.invoke.bind(configMiddleware));
+proxyServer.use(testExceptionMiddleware.invoke.bind(testExceptionMiddleware));
+proxyServer.use(healthcheckMiddleware.invoke.bind(healthcheckMiddleware));
 proxyServer.use(beginTimingMiddleware.invoke.bind(beginTimingMiddleware));
 proxyServer.use(wanAddressApplicationMiddleware.invoke.bind(wanAddressApplicationMiddleware));
 proxyServer.use(hostnameResolutionMiddleware.invoke.bind(hostnameResolutionMiddleware));
 proxyServer.use(denyLocalAreaNetworkAccessMiddleware.invoke.bind(denyLocalAreaNetworkAccessMiddleware));
 proxyServer.use(denyLoopbackAttackMiddleware.invoke.bind(denyLoopbackAttackMiddleware));
 proxyServer.use(corsApplicationMiddleware.invoke.bind(corsApplicationMiddleware));
-proxyServer.use(sphynxDomainMiddleware.invoke.bind(sphynxDomainMiddleware));
+proxyServer.use(hardcodedResponseMiddleware.invoke.bind(hardcodedResponseMiddleware));
 proxyServer.use(sendAxiosRequestMiddleware.invoke.bind(sendAxiosRequestMiddleware));
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-if (environment.logStartupInfo) {
-  const setupLogger = new logger(
-    'setup',
-    environment.logLevel,
-    environment.logToFileSystem,
-    environment.logToConsole,
-    environment.loggerCutPrefix,
-  );
-  web.overrideLoggers(
-    setupLogger.information.bind(setupLogger),
-    setupLogger.warning.bind(setupLogger),
-    setupLogger.debug.bind(setupLogger),
-    setupLogger.error.bind(setupLogger),
-  );
-}
+if (webEnvironment.singleton.logStartupInfo)
+  web.overrideLoggers(setupLogger.information.bind(setupLogger), setupLogger.error.bind(setupLogger));
 
 web.configureServer({
   app: proxyServer,
@@ -163,32 +185,42 @@ web.configureServer({
   trustProxy: false,
 });
 
+if (sentryEnvironment.singleton.sentryEnabled) {
+  proxyServer.use(Sentry.Handlers.errorHandler());
+}
+
 proxyServer.use(errorMiddleware.invoke.bind(errorMiddleware));
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Settings
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-if (environment.enableSecureServer) {
+if (webEnvironment.singleton.enableSecureServer) {
   entrypointLogger.information('Loading TLS settings...');
 
-  if (environment.enableTLSv2) {
+  if (webEnvironment.singleton.enableTLSv2) {
     entrypointLogger.information('TLSv2 is enabled.');
     settings.tlsV2 = true;
   }
   settings.tls = true;
-  settings.tlsPort = environment.securePort;
+  settings.tlsPort = webEnvironment.singleton.securePort;
 
-  if (!fs.existsSync(environment.sslBaseDirectory)) {
+  if (!fs.existsSync(webEnvironment.singleton.sslBaseDirectory)) {
     entrypointLogger.error(
       'The SSL base directory does not exist. Please make sure it exists and is readable. Path: %s',
-      environment.sslBaseDirectory,
+      webEnvironment.singleton.sslBaseDirectory,
     );
-    throw new Error(`The SSL base directory "${environment.sslBaseDirectory}" does not exist.`);
+    throw new Error(`The SSL base directory "${webEnvironment.singleton.sslBaseDirectory}" does not exist.`);
   }
 
-  const fullyQualifiedCertificatePath = path.join(environment.sslBaseDirectory, environment.sslCertificateFileName);
-  const fullyQualifiedKeyPath = path.join(environment.sslBaseDirectory, environment.sslKeyFileName);
+  const fullyQualifiedCertificatePath = path.join(
+    webEnvironment.singleton.sslBaseDirectory,
+    webEnvironment.singleton.sslCertificateFileName,
+  );
+  const fullyQualifiedKeyPath = path.join(
+    webEnvironment.singleton.sslBaseDirectory,
+    webEnvironment.singleton.sslKeyFileName,
+  );
 
   if (!fs.existsSync(fullyQualifiedCertificatePath)) {
     entrypointLogger.error(
@@ -206,20 +238,20 @@ if (environment.enableSecureServer) {
     throw new Error(`The SSL key file "${fullyQualifiedKeyPath}" does not exist.`);
   }
 
-  settings.baseTlsDirectory = environment.sslBaseDirectory;
-  settings.cert = environment.sslCertificateFileName;
-  settings.key = environment.sslKeyFileName;
+  settings.baseTlsDirectory = webEnvironment.singleton.sslBaseDirectory;
+  settings.cert = webEnvironment.singleton.sslCertificateFileName;
+  settings.key = webEnvironment.singleton.sslKeyFileName;
 
-  if (environment.sslKeyPassphrase !== null) {
+  if (webEnvironment.singleton.sslKeyPassphrase !== null) {
     entrypointLogger.information('TLS key passphrase is enabled.');
-    settings.passphrase = environment.sslKeyPassphrase;
+    settings.passphrase = webEnvironment.singleton.sslKeyPassphrase;
   }
 
-  if (environment.sslCertificateChainFileName !== null) {
+  if (webEnvironment.singleton.sslCertificateChainFileName !== null) {
     entrypointLogger.information('TLS certificate chain is enabled.');
     const fullyQualifiedCertificateChainPath = path.join(
-      environment.sslBaseDirectory,
-      environment.sslCertificateChainFileName,
+      webEnvironment.singleton.sslBaseDirectory,
+      webEnvironment.singleton.sslCertificateChainFileName,
     );
 
     if (!fs.existsSync(fullyQualifiedCertificateChainPath)) {
@@ -230,14 +262,14 @@ if (environment.enableSecureServer) {
       throw new Error(`The SSL certificate chain file "${fullyQualifiedCertificateChainPath}" does not exist.`);
     }
 
-    settings.chain = environment.sslCertificateChainFileName;
+    settings.chain = webEnvironment.singleton.sslCertificateChainFileName;
   }
 }
 
 settings.insecure = true;
-settings.insecurePort = environment.insecurePort;
+settings.insecurePort = webEnvironment.singleton.insecurePort;
 
-settings.bind = environment.bindAddressIPv4;
+settings.bind = webEnvironment.singleton.bindAddressIPv4;
 
 web.startServer({
   app: proxyServer,
@@ -246,9 +278,9 @@ web.startServer({
 
 // This is a temporary fix for the issue where the server is not able to start when
 // running in a Docker container on IPv6.
-if (!environment.disableIPv6 && !environment.isDocker()) {
+if (!webEnvironment.singleton.disableIPv6 && !environment.isDocker()) {
   entrypointLogger.information('Starting IPv6 server...');
-  settings.bind = environment.bindAddressIPv6;
+  settings.bind = webEnvironment.singleton.bindAddressIPv6;
   web.startServer({
     app: proxyServer,
     ...settings,

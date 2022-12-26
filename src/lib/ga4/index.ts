@@ -14,9 +14,6 @@
    limitations under the License.
 */
 
-/* eslint-disable valid-jsdoc */
-/* eslint-disable @typescript-eslint/naming-convention */
-
 import {
   collectorUrl,
   disallowedParameterStartStrings,
@@ -28,11 +25,11 @@ import {
   ReservedUserPropertyName,
   reservedUserPropertyNames,
   validatorUrl,
-} from './ga4_constants';
-import converters from './helpers/converters';
-import ga4Event from './models/ga4_event';
-import ga4EventRequest from './models/ga4_event_request';
-import ga4ValidationMessage from './models/ga4_validation_message';
+} from '@lib/ga4/ga4_constants';
+import converters from '@lib/ga4/helpers/converters';
+import ga4Event from '@lib/ga4/models/ga4_event';
+import ga4EventRequest from '@lib/ga4/models/ga4_event_request';
+import ga4ValidationMessage from '@lib/ga4/models/ga4_validation_message';
 
 import axios from 'axios';
 
@@ -59,7 +56,7 @@ export default abstract class GA4 {
   private static _logError: (message: string, ...args: unknown[]) => void;
 
   private static _blockUntilTruthy(value: boolean, timeout: number, message: string) {
-    this._logInfo?.call(this, 'GA4: Blocking until \'%s\' is true.', message);
+    this._logInfo?.call(this, "GA4: Blocking until '%s' is true.", message);
 
     return new Promise<void>((resolve, reject) => {
       const interval = setInterval(() => {
@@ -124,7 +121,7 @@ export default abstract class GA4 {
     if (eventNames.length > 0) {
       this._logError?.call(
         this,
-        'GA4: Event validation failed. Event name(s) \'%s\' are reserved.',
+        "GA4: Event validation failed. Event name(s) '%s' are reserved.",
         eventNames.map((e) => e.name).join(', '),
       );
       return false;
@@ -138,7 +135,7 @@ export default abstract class GA4 {
       if (reservedPropertyNames.length > 0) {
         this._logError?.call(
           this,
-          'GA4: Event validation failed. User property name(s) \'%s\' are reserved.',
+          "GA4: Event validation failed. User property name(s) '%s' are reserved.",
           reservedPropertyNames.join(', '),
         );
         return false;
@@ -151,7 +148,7 @@ export default abstract class GA4 {
       if (disallowedPropertyNames) {
         this._logError?.call(
           this,
-          'GA4: Event validation failed. User property name(s) \'%s\' are disallowed.',
+          "GA4: Event validation failed. User property name(s) '%s' are disallowed.",
           reservedPropertyNames.join(', '),
         );
         return false;
@@ -169,7 +166,7 @@ export default abstract class GA4 {
       if (reservedParamNames.length > 0) {
         this._logError?.call(
           this,
-          'GA4: Event validation failed. Event parameter name(s) \'%s\' are reserved.',
+          "GA4: Event validation failed. Event parameter name(s) '%s' are reserved.",
           reservedParamNames.join(', '),
         );
         return false;
@@ -182,7 +179,7 @@ export default abstract class GA4 {
       if (disallowedParamNames) {
         this._logError?.call(
           this,
-          'GA4: Event validation failed. Event parameter name(s) \'%s\' are disallowed.',
+          "GA4: Event validation failed. Event parameter name(s) '%s' are disallowed.",
           reservedParamNames.join(', '),
         );
         return false;
@@ -295,7 +292,7 @@ export default abstract class GA4 {
       this._logError?.call(this, e),
     );
 
-    this._logInfo?.call(this, 'GA4: Sending event \'%s\' to Google Analytics.', eventName);
+    this._logInfo?.call(this, "GA4: Sending event '%s' to Google Analytics.", eventName);
 
     if (!clientId) {
       this._logError?.call(this, 'GA4: Cannot fire event, clientId is not specified.');

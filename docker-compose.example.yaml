@@ -20,11 +20,10 @@ services:
   app:
     build: .
     volumes:
-      # Uncomment the following line to mount CORs, Sphynx Hardocode and Sphynx Rewrite
+      # Uncomment the following line to mount CORs and Hardocoded Response rules.
       # rules to the container.
       # - ./cors-rules.yml:/app/cors-rules.yml
-      # - ./sphynx-hardcode.yml:/app/sphynx-hardcode.yml
-      # - ./sphynx-rewrite.yml:/app/sphynx-rewrite.yml
+      # - ./hardcoded-response-rules.yml:/app/hardcoded-response-rules.yml
       - ./.env:/app/.env
       - ./logs:/app/logs
     networks:

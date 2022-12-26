@@ -20,12 +20,13 @@
     Written by: Nikita Petko
 */
 
-/* eslint-disable @typescript-eslint/naming-convention */
-
 import '@lib/extensions/express/response';
 
-import environment from '@lib/environment';
+import * as npm from '@lib/utility/npm_utility';
 import webUtility from '@lib/utility/web_utility';
+import arcEnvironment from '@lib/environment/arc_environment';
+
+const { version } = npm.readPackageJson();
 
 import * as util from 'util';
 import net from '@mfdlabs/net';
@@ -40,7 +41,10 @@ export default class LoadBalancerInfoResponder {
 
   private static _arcServerCached = undefined;
 
-  private static readonly _arcMachineInfoUrlFormat = util.format(environment.arcMachineInfoUrlFormat, this._machineId);
+  private static readonly _arcMachineInfoUrlFormat = util.format(
+    arcEnvironment.singleton.arcMachineInfoUrlFormat,
+    this._machineId,
+  );
 
   private static _getSharedServerName(): string {
     if (this._arcServerCached === undefined) {
@@ -97,12 +101,12 @@ export default class LoadBalancerInfoResponder {
     }
 
     response.header({
-      Server: 'mfdlabs/rbx-proxy',
-      'X-Powered-By': 'mfdlabs/rbx-proxy',
+      Server: `mfdlabs/rbx-proxy ${version}`,
+      'X-Powered-By': `mfdlabs/rbx-proxy ${version}`,
     });
 
     if (writeCustomResponse) {
-      response.status(200).send('mfdlabs/rbx-proxy healthy!');
+      response.status(200).send(`mfdlabs/rbx-proxy ${version} healthy!`);
       return;
     }
 
