@@ -20,8 +20,6 @@
     Written by: Nikita Petko
 */
 
-import RouteSetupOptions from './route_setup_options';
-
 import * as express from 'express';
 
 /**
@@ -34,19 +32,9 @@ export default interface ConfigurationOptions {
   app: express.Application;
 
   /**
-   * Determines if you want to map file routes like IRoutingController.
-   */
-  allowRoutes?: boolean;
-
-  /**
    * These are the options for the Express router.
    */
   routingOptions?: express.RouterOptions;
-
-  /**
-   * These are the options for our own file router.
-   */
-  routeConfiguration?: RouteSetupOptions;
 
   /**
    * This signifies if we should trust proxy headers.
@@ -67,6 +55,4 @@ export default interface ConfigurationOptions {
    * This signifies if we should use the raw buffer as a body.
    */
   rawBufferRequest?: boolean;
-
-  // eslint-disable-next-line semi
 }

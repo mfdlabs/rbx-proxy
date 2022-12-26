@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-import GA4Event from './ga4_event';
+import GA4Event from '@lib/ga4/models/ga4_event';
 
 /**
  * This class is a wrapper for event information. It is only ingested by the Google Analytics client.

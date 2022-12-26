@@ -16,9 +16,12 @@
 
 /*
     File Name: override_middleware.ts
-    Description: This is the first middleware in the chain. It overrides the response.end method so that it can send the response to the client with lowercase headers.
+    Description: This is the first middleware in the chain. 
+                 It overrides the response.end method so that it can send the response to the client with lowercase headers.
     Written by: Nikita Petko
 */
+
+import * as overrideMiddlewareMetrics from '@lib/metrics/middleware/override_middleware_metrics';
 
 import { NextFunction, Request, Response } from 'express';
 
@@ -33,29 +36,55 @@ export default class OverrideMiddleware {
   public static invoke(request: Request, response: Response, next: NextFunction): void {
     const oldEnd = response.end;
 
+    const start = Date.now();
+
     Object.defineProperty(response, 'end', {
       writable: true,
-      value(this: Response, ...args: unknown[]) {
-        response.getHeaderNames().forEach((headerName: string) => {
-          const headerValue = response.getHeader(headerName);
-          response.removeHeader(headerName);
-          response.setHeader(headerName.toLowerCase(), headerValue);
+      value(this: Response, ...args: any[]) {
+        OverrideMiddleware._shuffleArray(this.getHeaderNames()).forEach((headerName: string) => {
+          const headerValue = this.getHeader(headerName);
+          this.removeHeader(headerName);
+          this.setHeader(headerName.toLowerCase(), headerValue);
         });
 
         // Apply connection: close header if it was not set by the user.
-        if (!response.getHeader('connection')) {
-          response.setHeader('connection', 'close');
+        if (!this.getHeader('connection')) {
+          this.append('connection', 'close');
         }
 
-        response.setHeader('date', new Date().toUTCString());
+        this.append('date', new Date().toUTCString());
 
         // Clear request context.
         request.context.clear();
+
+        overrideMiddlewareMetrics.responseTimeHistogram
+          .labels(
+            request.method,
+            request.headers.host || 'No Host Header',
+            request.path,
+            this.statusCode.toString(),
+            request.ip,
+          )
+          .observe((Date.now() - start) / 1000);
 
         oldEnd.apply(this, args);
       },
     });
 
+    // Transform all request headers to lowercase.
+    request.headers = Object.fromEntries(
+      Object.entries(request.headers).map(([key, value]) => [key.toLowerCase(), value]),
+    );
+
     next();
+  }
+
+  private static _shuffleArray(array: string[]): string[] {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+
+    return array;
   }
 }

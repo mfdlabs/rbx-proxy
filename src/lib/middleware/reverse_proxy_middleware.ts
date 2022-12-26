@@ -21,7 +21,8 @@
     Written by: Nikita Petko
 */
 
-import environment from '@lib/environment';
+import proxyEnvironment from '@lib/environment/proxy_environment';
+import * as reverseProxyMiddlewareMetrics from '@lib/metrics/middleware/reverse_proxy_middleware_metrics';
 
 import net from '@mfdlabs/net';
 import { NextFunction, Request, Response } from 'express';
@@ -37,21 +38,33 @@ export default class ReverseProxyMiddleware {
   public static invoke(request: Request, response: Response, next: NextFunction): void {
     this._defineProperty(request, 'port', request.socket.localPort);
 
-    if (!environment.reverseProxyMiddlewareEnabled) return next();
+    if (!proxyEnvironment.singleton.reverseProxyMiddlewareEnabled) return next();
 
     if (
       this._isFromLocalArea(request) ||
       this._isFromAuthorizedReverseProxy(request) ||
       this._isCloudflareServer(request) // I advise you don't change this array.
     ) {
-      if (environment.reverseProxyMiddlewareReassignClientIPAddress) {
+      if (proxyEnvironment.singleton.reverseProxyMiddlewareReassignClientIPAddress) {
         let didAssignIP = false;
 
-        if (environment.useCloudflareForwardingHeaders) {
+        if (proxyEnvironment.singleton.useCloudflareForwardingHeaders) {
           // We can use the Cloudflare forwarding headers to get the real IP if
           if (request.headers['cf-connecting-ip']) {
             const cloudflareIP = request.headers['cf-connecting-ip'];
             if (typeof cloudflareIP === 'string' && this._isValidIP(cloudflareIP)) {
+              reverseProxyMiddlewareMetrics.requestsThatAreFromCloudflare.inc({
+                method: request.method,
+                hostname: request.headers.host || 'No Host Header',
+                endpoint: request.url,
+                caller: request.ip,
+              });
+
+              reverseProxyMiddlewareMetrics.overridenIpAddresses.inc({
+                actual_ip: request.ip,
+                overriden_ip: cloudflareIP,
+              });
+
               this._setClientIP(request, cloudflareIP);
               didAssignIP = true;
             }
@@ -60,33 +73,60 @@ export default class ReverseProxyMiddleware {
 
         // If we haven't assigned an IP yet, use the x-forwarded-for header.
         if (!didAssignIP) {
-          const forwardedHeader = request.header(environment.forwardingHeaderName);
+          const forwardedHeader = request.header(proxyEnvironment.singleton.forwardingHeaderName);
           if (typeof forwardedHeader === 'string' && this._isValidIP(forwardedHeader)) {
+            reverseProxyMiddlewareMetrics.requestsThatAreFromAuthorizedReverseProxies.inc({
+              method: request.method,
+              hostname: request.headers.host || 'No Host Header',
+              endpoint: request.url,
+              caller: request.ip,
+            });
+
+            reverseProxyMiddlewareMetrics.overridenIpAddresses.inc({
+              actual_ip: request.ip,
+              overriden_ip: forwardedHeader,
+            });
+
             this._setClientIP(request, forwardedHeader);
             didAssignIP = true;
           }
         }
       }
 
-      if (environment.reverseProxyMiddlewareReassignHostHeader) {
-        const forwardedHost = request.header(environment.forwardingTransformedHostHeaderName);
+      if (proxyEnvironment.singleton.reverseProxyMiddlewareReassignHostHeader) {
+        const forwardedHost = request.header(proxyEnvironment.singleton.forwardingTransformedHostHeaderName);
         if (typeof forwardedHost === 'string') {
+          reverseProxyMiddlewareMetrics.overridenHostnames.inc({
+            actual_hostname: request.headers.host || 'No Host Header',
+            overriden_hostname: forwardedHost,
+          });
+
           request.headers.host = forwardedHost;
         }
       }
 
-      if (environment.reverseProxyMiddlewareReassignClientScheme) {
-        const forwardedScheme = request.header(environment.forwardingSchemeHeaderName)?.toLowerCase();
+      if (proxyEnvironment.singleton.reverseProxyMiddlewareReassignClientScheme) {
+        const forwardedScheme = request.header(proxyEnvironment.singleton.forwardingSchemeHeaderName)?.toLowerCase();
         if (typeof forwardedScheme === 'string' && (forwardedScheme === 'http' || forwardedScheme === 'https')) {
+          reverseProxyMiddlewareMetrics.overridenProtocols.inc({
+            actual_protocol: request.protocol,
+            overriden_protocol: forwardedScheme,
+          });
+
           this._setClientProtocol(request, forwardedScheme);
         }
       }
 
-      if (environment.reverseProxyMiddlewareReassignClientPort) {
-        const forwardedPort = request.header(environment.forwardingPortHeaderName);
+      if (proxyEnvironment.singleton.reverseProxyMiddlewareReassignClientPort) {
+        const forwardedPort = request.header(proxyEnvironment.singleton.forwardingPortHeaderName);
         if (typeof forwardedPort === 'string' && forwardedPort.length > 0) {
           const port = parseInt(forwardedPort, 10);
           if (!isNaN(port) && port > 0 && port < 65536) {
+            reverseProxyMiddlewareMetrics.overridenPorts.inc({
+              actual_port: request.localPort.toString(),
+              overriden_port: forwardedPort,
+            });
+
             this._setClientPort(request, port);
           }
         }
@@ -128,8 +168,8 @@ export default class ReverseProxyMiddleware {
 
   private static _isCloudflareServer(request: Request): boolean {
     return (
-      net.isIPv4InCidrRangeList(request.ip, environment.cloudflareIPv4Addresses) ||
-      net.isIPv6InCidrRangeList(request.ip, environment.cloudflareIPv6Addresses)
+      net.isIPv4InCidrRangeList(request.ip, proxyEnvironment.singleton.cloudflareIPv4Addresses) ||
+      net.isIPv6InCidrRangeList(request.ip, proxyEnvironment.singleton.cloudflareIPv6Addresses)
     );
   }
 
@@ -140,8 +180,8 @@ export default class ReverseProxyMiddleware {
     // not on the same network as the server, you can use this to allow that machine to spoof
     // the request.
     return (
-      net.isIPv4InCidrRangeList(request.ip, environment.authorizedReverseProxyIPv4Addresses) ||
-      net.isIPv6InCidrRangeList(request.ip, environment.authorizedReverseProxyIPv6Addresses)
+      net.isIPv4InCidrRangeList(request.ip, proxyEnvironment.singleton.authorizedReverseProxyIPv4Addresses) ||
+      net.isIPv6InCidrRangeList(request.ip, proxyEnvironment.singleton.authorizedReverseProxyIPv6Addresses)
     );
   }
 

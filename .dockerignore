@@ -21,12 +21,9 @@ src/lib/directories.ts
 !LICENSE
 !README.md
 !tsconfig.json
-!sphynx-rewrite.yml
-!sphynx-rewrite.yaml
-!sphynx-rewrite.json
-!sphynx-hardcode.yml
-!sphynx-hardcode.yaml
-!sphynx-hardcode.json
+!hardcoded-response-rules.yml
+!hardcoded-response-rules.yaml
+!hardcoded-response-rules.json
 !cors-rules.yml
 !cors-rules.yaml
 !cors-rules.json

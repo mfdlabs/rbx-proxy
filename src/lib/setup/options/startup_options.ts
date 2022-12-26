@@ -118,6 +118,4 @@ export default interface StartupOptions {
    * The base directory for the SSL certificates.
    */
   baseTlsDirectory?: string;
-
-  // eslint-disable-next-line semi
 }

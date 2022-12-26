@@ -21,18 +21,10 @@
 */
 
 import ga4 from '@lib/ga4';
-import logger from '@lib/logger';
-import environment from '@lib/environment';
+import ga4logger from '@lib/loggers/ga4_logger';
+import ga4Environment from '@lib/environment/ga4_environment';
 
 import net from '@mfdlabs/net';
-
-const ga4logger = new logger(
-  'ga4',
-  environment.logLevel,
-  environment.logToFileSystem,
-  environment.logToConsole,
-  environment.loggerCutPrefix,
-);
 
 /**
  * A wrapper class for the GA4 client.
@@ -42,26 +34,30 @@ export default abstract class GoogleAnalytics {
   private static _clientId = net.getLocalIPv4();
 
   public static initialize(): void {
-    if (!environment.enableGA4Client) return;
+    if (!ga4Environment.singleton.enableGA4Client) return;
     if (this._isInitialized) return;
 
     if (
-      environment.ga4MeasurementID &&
-      environment.ga4MeasurementID.length > 0 &&
-      environment.ga4APISecret &&
-      environment.ga4APISecret.length > 0
+      ga4Environment.singleton.ga4MeasurementID &&
+      ga4Environment.singleton.ga4MeasurementID.length > 0 &&
+      ga4Environment.singleton.ga4APISecret &&
+      ga4Environment.singleton.ga4APISecret.length > 0
     ) {
-      if (environment.ga4EnableLogging) {
+      if (ga4Environment.singleton.ga4EnableLogging) {
         ga4.overrideLoggers(ga4logger.information.bind(ga4logger), ga4logger.error.bind(ga4logger));
       }
 
-      ga4.initialize(environment.ga4MeasurementID, environment.ga4APISecret, environment.ga4EnableValidation);
+      ga4.initialize(
+        ga4Environment.singleton.ga4MeasurementID,
+        ga4Environment.singleton.ga4APISecret,
+        ga4Environment.singleton.ga4EnableValidation,
+      );
       this._isInitialized = true;
     }
   }
 
   public static async fireServerEventGA4(category: string, action: string, label?: string): Promise<void> {
-    if (!environment.enableGA4Client) return;
+    if (!ga4Environment.singleton.enableGA4Client) return;
     if (!this._isInitialized) return;
 
     await ga4.fireEventAsync(this._clientId, 'server_event', {

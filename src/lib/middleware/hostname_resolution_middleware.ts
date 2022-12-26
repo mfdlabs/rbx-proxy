@@ -16,27 +16,21 @@
 
 /*
     File Name: hostname_resolution_middleware.ts
-    Description: Resolves the upstream client's hostname to a valid IP address, and transforms it if it's a roblox test domain.
+    Description: Resolves the downstream client's hostname to a valid IP address, and transforms it if it's a roblox test domain.
     Written by: Nikita Petko
 */
 
 import '@lib/extensions/express/request';
 import '@lib/extensions/express/response';
 
-import logger from '@lib/logger';
-import environment from '@lib/environment';
+import hostnameEnvironment from '@lib/environment/hostname_environment';
+import loadBalancerResponder from '@lib/responders/load_balancer_responder';
+import hardcodedResponseWriter from '@lib/writers/hardcoded_response_writer';
+import hostnameResolutionMiddlewareLogger from '@lib/loggers/middleware/hostname_resolution_middleware_logger';
+import * as hostnameResolutionMiddlewareMetrics from '@lib/metrics/middleware/hostname_resolution_middleware_metrics';
 
 import net from '@mfdlabs/net';
-import htmlEncode from 'escape-html';
 import { NextFunction, Request, Response } from 'express';
-
-const hostnameResolutionLogger = new logger(
-  'hostname-resolution-middleware',
-  environment.logLevel,
-  environment.logToFileSystem,
-  environment.logToConsole,
-  environment.loggerCutPrefix,
-);
 
 export default class HostnameResolutionMiddleware {
   /**
@@ -47,7 +41,9 @@ export default class HostnameResolutionMiddleware {
    * @returns {void} Nothing.
    */
   public static async invoke(request: Request, response: Response, next: NextFunction): Promise<void> {
-    let hostname = environment.hostnameResolutionMiddlewareStripPortFromHostHeader
+    if (hardcodedResponseWriter.hasRule(request)) return next();
+
+    let hostname = hostnameEnvironment.singleton.hostnameResolutionMiddlewareStripPortFromHostHeader
       ? this._stripPort(request.headers.host)
       : request.headers.host;
 
@@ -65,7 +61,11 @@ export default class HostnameResolutionMiddleware {
 
     const resolvedHostname = await net.resolveHostname(hostname);
 
-    hostnameResolutionLogger.debug('Resolved hostname for \'%s\' to \'%s\'.', hostname, resolvedHostname || '<unknown>');
+    hostnameResolutionMiddlewareLogger.debug(
+      "Resolved hostname for '%s' to '%s'.",
+      hostname,
+      resolvedHostname || '<unknown>',
+    );
 
     if (typeof resolvedHostname !== 'string' || this._notTruthy(resolvedHostname)) {
       this._handleNxDomain(hostname, request, response);
@@ -88,19 +88,19 @@ export default class HostnameResolutionMiddleware {
   }
 
   private static _handleNxDomain(hostname: string, request: Request, response: Response) {
-    hostnameResolutionLogger.warning(
-      'Resolved host for \'%s\' is undefined or null, responding with invalid hostname error',
+    hostnameResolutionMiddlewareLogger.warning(
+      "Resolved host for '%s' is undefined or null, responding with invalid hostname error",
       hostname,
     );
     request.fireEvent('NXDomain');
 
-    response.status(503);
-    response.contentType('text/html');
-    response.noCache();
-    response.send(
-      `<html><body><h1>503 Service Unavailable</h1><p>Cannot satisfy request because the hostname ${htmlEncode(
-        hostname,
-      )} could not be resolved.</p></body></html>`,
+    hostnameResolutionMiddlewareMetrics.hostnamesThatDidNotResolve.inc({ hostname });
+
+    loadBalancerResponder.sendMessage(
+      `Cannot satisfy request because the hostname ${request.hostname} could not be resolved.`,
+      request,
+      response,
+      503,
     );
   }
 
@@ -109,34 +109,47 @@ export default class HostnameResolutionMiddleware {
 
     hostname = hostname.replace(/^https?:?\/\//, '');
 
-    const match = environment.robloxTestSiteDomainRegex.exec(hostname);
+    const match = hostnameEnvironment.singleton.robloxTestSiteDomainRegex.exec(hostname);
 
     if (match === null) return hostname;
 
     // If group 2 is undefined, but group 3 is not, that means we have an apex domain (domain without subdomain)
     if (match !== null && match[2] === undefined && match[3] !== undefined) {
-      return environment.robloxProductionApexDomain;
+      return hostnameEnvironment.singleton.robloxProductionApexDomain;
     }
 
     const subdomain = match[2];
 
-    return `${subdomain}.${environment.robloxProductionApexDomain}`;
+    return `${subdomain}.${hostnameEnvironment.singleton.robloxProductionApexDomain}`;
   }
 
   private static _handleInvalidHostHeader(request: Request, response: Response) {
-    hostnameResolutionLogger.warning('Request had no host header present, responding with a 400.');
+    hostnameResolutionMiddlewareLogger.warning('Request had no host header present, responding with a 400.');
     request.fireEvent('InvalidHostname');
 
-    response.status(400);
-    response.contentType('text/html');
-    response.noCache();
-    response.send(
-      '<html><body><h1>400 Bad Request</h1><p>Cannot satisfy request because the host header is missing.</p></body></html>',
+    hostnameResolutionMiddlewareMetrics.requestThatHadNoHostname.inc({
+      method: request.method,
+      endpoint: request.path,
+      caller: request.ip,
+    });
+
+    loadBalancerResponder.sendMessage(
+      `Cannot satisfy request because the host header is missing.`,
+      request,
+      response,
+      400,
     );
   }
 
   private static _stripPort(hostname: string): string {
     if (!hostname) return hostname;
+
+    // check if IPv6:
+    if (hostname.startsWith('[') && hostname.indexOf(']') !== -1) {
+      const split = hostname.split(']');
+
+      return split[0] + ']'; // [IPv6]
+    }
 
     const portIndex = hostname.indexOf(':');
 

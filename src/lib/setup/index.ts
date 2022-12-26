@@ -24,17 +24,8 @@
 // Imports
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import route from './contracts/route';
-import walkers from './utility/walkers';
-import startupOptions from './options/startup_options';
-import routeSetupOptions from './options/route_setup_options';
-import configurationOptions from './options/configuration_options';
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Type Imports
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-import { RouteCallbackDelegate } from './custom_types/route_callback_delegate';
+import startupOptions from '@lib/setup/options/startup_options';
+import configurationOptions from '@lib/setup/options/configuration_options';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Third Party Imports
@@ -42,7 +33,7 @@ import { RouteCallbackDelegate } from './custom_types/route_callback_delegate';
 
 import * as fs from 'fs';
 import * as net from 'net';
-// import * as spdy from 'spdy';
+import * as spdy from 'spdy';
 import * as path from 'path';
 import * as http from 'http';
 import * as https from 'https';
@@ -60,8 +51,6 @@ export default abstract class WebHelper {
 
   // log functions
   private static _logInfo: (message: string, ...args: unknown[]) => void = null;
-  private static _logWarning: (message: string, ...args: unknown[]) => void = null;
-  private static _logDebug: (message: string, ...args: unknown[]) => void = null;
   private static _logError: (message: string, ...args: unknown[]) => void = null;
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -73,24 +62,17 @@ export default abstract class WebHelper {
   private static readonly _ecPrivateKeyHeader = '-----BEGIN EC PRIVATE KEY-----';
   private static readonly _encryptedPrivateKeyHeader = '-----BEGIN ENCRYPTED PRIVATE KEY-----';
 
-  // eslint-disable-next-line valid-jsdoc
   /**
    * Overrides the log functions.
    * @param {((message: string, ...args: unknown[]) => void)} logInfo The log info function.
-   * @param {((message: string, ...args: unknown[]) => void)} logWarning The log warning function.
-   * @param {((message: string, ...args: unknown[]) => void)} logDebug The log debug function.
    * @param {((message: string, ...args: unknown[]) => void)} logError The log error function.
    * @returns {void} Nothing.
    */
   public static overrideLoggers(
     logInfo?: (message: string, ...args: unknown[]) => void,
-    logWarning?: (message: string, ...args: unknown[]) => void,
-    logDebug?: (message: string, ...args: unknown[]) => void,
     logError?: (message: string, ...args: unknown[]) => void,
   ): void {
     this._logInfo = logInfo;
-    this._logWarning = logWarning;
-    this._logDebug = logDebug;
     this._logError = logError;
   }
 
@@ -134,8 +116,6 @@ export default abstract class WebHelper {
         );
 
       options.app.use(express.Router(options.routingOptions));
-
-      if (options.allowRoutes) this._mapFileRoutesInternal(options.app, options.routeConfiguration);
     } catch (e) {
       this._logError?.call(this, 'Error occurred when configuring a site! Stack: %s', e.stack);
     }
@@ -185,14 +165,23 @@ export default abstract class WebHelper {
 
           const sslConfiguration = this._verifyCertificate(options);
 
-          sslServer = https.createServer(sslConfiguration, options.app)
-            .listen(options.tlsPort, options.bind, () =>
-              this._logInfo?.call(this, 'SSL Server \'%s\' started on port %d.', options.bind, options.tlsPort),
-            );
+          if (options.tlsV2) {
+            sslServer = spdy
+              .createServer(sslConfiguration, options.app)
+              .listen(options.tlsPort, options.bind, () =>
+                this._logInfo?.call(this, "SSL Server '%s' started on port %d.", options.bind, options.tlsPort),
+              );
+          } else {
+            sslServer = https
+              .createServer(sslConfiguration, options.app)
+              .listen(options.tlsPort, options.bind, () =>
+                this._logInfo?.call(this, "SSL Server '%s' started on port %d.", options.bind, options.tlsPort),
+              );
+          }
         }
         if (options.insecure)
           insecureServer = options.app.listen(options.insecurePort, options.bind, () =>
-            this._logInfo?.call(this, 'Insecure Server \'%s\' started on port %d.', options.bind, options.insecurePort),
+            this._logInfo?.call(this, "Insecure Server '%s' started on port %d.", options.bind, options.insecurePort),
           );
         return [insecureServer, sslServer];
       });
@@ -324,156 +313,6 @@ export default abstract class WebHelper {
 
     if (options.passphrase) sslConfiguration.passphrase = options.passphrase;
 
-    const server = https.createServer(sslConfiguration, () => {
-      // Do nothing.
-    });
-    server.on('error', (err: Error) => {
-      if (err.message.includes('certificate verify failed'))
-        throw new Error('The certificate key and passphrase are not compatible with the certificate!');
-    });
-    server.listen(0, () => server.close());
-
     return sslConfiguration;
-  }
-
-  private static _mapFileRoutesInternal(application?: express.Application, options?: routeSetupOptions): void {
-    const directory =
-      options && options.routesPath ? options.routesPath : path.join(this._rootProjectPath, this._baseRoutesPath);
-
-    if (!fs.existsSync(directory)) {
-      this._logWarning?.call(
-        this,
-        'The directory \'%s\' for the site \'%s\' was not found, make sure you configured your directory correctly.',
-        directory,
-        options.debugName,
-      );
-      return;
-    }
-    const files = walkers.walkDirectory(directory).filter((file) => file.match(/\.js$/));
-    files.forEach((file) => {
-      // Just in case the file is a directory.
-      if (!file.match(/\.js$/)) return;
-
-      let routeModel: route;
-
-      try {
-        routeModel = require(file);
-      } catch (error) {
-        return this._logError?.call(
-          this,
-          'An error occurred when requiring the route file \'%s\' for the site \'%s\'. Stack: %s',
-          file,
-          options.debugName,
-          error.stack,
-        );
-      }
-
-      if (!routeModel) {
-        this._logWarning?.call(
-          this,
-          'The route file \'%s\' for the site \'%s\' had no default export.',
-          file,
-          options.debugName,
-        );
-        return;
-      }
-
-      const routeCallback: RouteCallbackDelegate = routeModel.invoke;
-      if (!routeCallback || typeof routeCallback !== 'function') {
-        this._logWarning?.call(
-          this,
-          'The route file \'%s\' for the site \'%s\' did not have a valid callback function.',
-          file,
-          options.debugName,
-        );
-        return;
-      }
-
-      let allowedMethod = (routeModel.requestMethod ?? 'all').toLowerCase();
-
-      const RejectionWrappedCallback = (
-        request: express.Request,
-        response: express.Response,
-        next: express.NextFunction,
-      ) => {
-        try {
-          const result = routeCallback(request, response, next);
-          if (result instanceof Promise) {
-            result.catch(next);
-          }
-        } catch (error) {
-          next(error);
-        }
-      };
-
-      const filePath = file
-        .replace(/\.js/i, '')
-        .replace(/_P-/g, ':')
-        .replace(/__pageIndex__/gi, '/')
-        .replace(directory, '')
-        .replace(/\\/g, '/')
-        .toLowerCase();
-
-      const isMiddleware = /__all/gi.test(filePath);
-
-      if (isMiddleware && allowedMethod !== 'all') allowedMethod = 'all';
-
-      const fqp = (options.debugName !== undefined ? `http://${options.debugName}` : 'http://localhost') + filePath;
-
-      switch (allowedMethod) {
-        case 'get':
-          if (options.logSetup) this._logDebug?.call(this, 'Mapping \'GET\' \'%s\' for site \'%s\'', fqp, options.debugName);
-          application.get(filePath, RejectionWrappedCallback);
-          break;
-        case 'head':
-          if (options.logSetup) this._logDebug?.call(this, 'Mapping \'HEAD\' \'%s\' for site \'%s\'', fqp, options.debugName);
-          application.head(filePath, RejectionWrappedCallback);
-          break;
-        case 'post':
-          if (options.logSetup) this._logDebug?.call(this, 'Mapping \'POST\' \'%s\' for site \'%s\'', fqp, options.debugName);
-          application.post(filePath, RejectionWrappedCallback);
-          break;
-        case 'put':
-          if (options.logSetup) this._logDebug?.call(this, 'Mapping \'PUT\' \'%s\' for site \'%s\'', fqp, options.debugName);
-          application.put(filePath, RejectionWrappedCallback);
-          break;
-        case 'patch':
-          if (options.logSetup)
-            this._logDebug?.call(this, 'Mapping \'PATCH\' \'%s\' for site \'%s\'', fqp, options.debugName);
-          application.patch(filePath, RejectionWrappedCallback);
-          break;
-        case 'delete':
-          if (options.logSetup)
-            this._logDebug?.call(this, 'Mapping \'DELETE\' \'%s\' for site \'%s\'', fqp, options.debugName);
-          application.delete(filePath, RejectionWrappedCallback);
-          break;
-        case 'options':
-          if (options.logSetup)
-            this._logDebug?.call(this, 'Mapping \'OPTIONS\' \'%s\' for site \'%s\'', fqp, options.debugName);
-          application.options(filePath, RejectionWrappedCallback);
-          break;
-        case 'all':
-          if (isMiddleware) {
-            if (options.logSetup) this._logDebug?.call(this, 'Mapping \'ALL ROUTES\' for site \'%s\'', options.debugName);
-            application.use(RejectionWrappedCallback);
-            break;
-          }
-
-          if (options.logSetup) this._logDebug?.call(this, 'Mapping \'ALL\' \'%s\' for site \'%s\'', fqp, options.debugName);
-          application.all(filePath, RejectionWrappedCallback);
-          break;
-        default:
-          this._logWarning?.call(
-            this,
-            'The route file \'%s\' for the site \'%s\' had an invalid request method \'%s\'.',
-            file,
-            options.debugName,
-            allowedMethod,
-          );
-          break;
-      }
-    });
-
-    if (options.logSetup) this._logInfo?.call(this, 'The site \'%s\' has %d route(s)', options.debugName, files.length);
   }
 }

@@ -14,9 +14,6 @@
    limitations under the License.
 */
 
-/* eslint-disable no-prototype-builtins */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 /*
     File Name: index.ts
     Description: Extensions to the express request object.
@@ -25,9 +22,9 @@
 
 export {};
 
-import environment from '@lib/environment';
 import webUtility from '@lib/utility/web_utility';
 import googleAnalytics from '@lib/utility/google_analytics';
+import ga4Environment from '@lib/environment/ga4_environment';
 
 import * as tls from 'tls';
 import * as express from 'express';
@@ -70,13 +67,30 @@ if (!express.request.hasOwnProperty('context')) {
   });
 }
 
+// Method: sentryContext
+// Description: Returns the context of the request.
+// Language: typescript
+if (!express.request.hasOwnProperty('_sentryContext')) {
+  Object.defineProperty(express.request, '_sentryContext', {
+    value: { transaction: undefined },
+  });
+}
+if (!express.request.hasOwnProperty('sentryContext')) {
+  Object.defineProperty(express.request, 'sentryContext', {
+    get: function getContext() {
+      return this._sentryContext;
+    },
+  });
+}
+
+
 // Method: fireEvent
 // Description: Fires a google analytics event.
 // Language: typescript
 if (!express.request.hasOwnProperty('fireEvent')) {
   Object.defineProperty(express.request, 'fireEvent', {
     value: async function fireEvent(action: string, label?: string) {
-      if (!environment.requestExtensionsEnableGoogleAnalytics) return;
+      if (!ga4Environment.singleton.requestExtensionsEnableGoogleAnalytics) return;
 
       // Set up the request context.
       const context = this.context;
@@ -95,12 +109,12 @@ if (!express.request.hasOwnProperty('fireEvent')) {
             .join('\n');
           const httpVersion = this.httpVersion;
 
-          if (!environment.ga4DisableLoggingIPs)
+          if (!ga4Environment.singleton.ga4DisableLoggingIPs)
             baseGaString = `Client ${this.ip}\n${this.method} ${this.originalUrl} ${httpVersion}\n${headersAsString}\n`;
           else
             baseGaString = `Client [redacted]\n${this.method} ${this.originalUrl} ${httpVersion}\n${headersAsString}\n`;
 
-          if (!environment.ga4DisableLoggingBody) {
+          if (!ga4Environment.singleton.ga4DisableLoggingBody) {
             const body = this.body?.toString() ?? '';
 
             if (body !== '[object Object]') {

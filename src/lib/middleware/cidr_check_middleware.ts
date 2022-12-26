@@ -24,19 +24,13 @@
 
 import '@lib/extensions/express/response';
 
-import logger from '@lib/logger';
-import environment from '@lib/environment';
+import ipCheckEnvironment from '@lib/environment/ip_check_environment';
+import loadBalancerResponder from '@lib/responders/load_balancer_responder';
+import cidrCheckMiddlewareLogger from '@lib/loggers/middleware/cidr_check_middleware_logger';
+import * as cidrCheckMiddlewareMetrics from '@lib/metrics/middleware/cidr_check_middleware_metrics';
 
 import net from '@mfdlabs/net';
 import { NextFunction, Request, Response } from 'express';
-
-const cidrCheckLogger = new logger(
-  'cidr-check-middleware',
-  environment.logLevel,
-  environment.logToFileSystem,
-  environment.logToConsole,
-  environment.loggerCutPrefix,
-);
 
 export default class CidrCheckMiddleware {
   /**
@@ -47,27 +41,34 @@ export default class CidrCheckMiddleware {
    * @returns {void} Nothing.
    */
   public static invoke(request: Request, response: Response, next: NextFunction): void {
-    if (!environment.shouldCheckIP) return next();
+    if (!ipCheckEnvironment.singleton.shouldCheckIP) return next();
 
-    const allowedIPv4Cidrs = environment.allowedIPv4Cidrs;
-    const allowedIPv6Cidrs = environment.allowedIPv6Cidrs;
+    const allowedIPv4Cidrs = ipCheckEnvironment.singleton.allowedIPv4Cidrs;
+    const allowedIPv6Cidrs = ipCheckEnvironment.singleton.allowedIPv6Cidrs;
 
     if (
       !net.isIPv4InCidrRangeList(request.ip, allowedIPv4Cidrs) &&
       !net.isIPv6InCidrRangeList(request.ip, allowedIPv6Cidrs)
     ) {
-      cidrCheckLogger.log('IP \'%s\' is not in allowed CIDR list', request.ip);
+      cidrCheckMiddlewareLogger.log("IP '%s' is not in allowed CIDR list", request.ip);
 
-      if (environment.abortConnectionIfInvalidIP) {
+      allowedIPv4Cidrs.forEach((cidr) => {
+        cidrCheckMiddlewareMetrics.ipsNotInCidrRange.inc({ cidr, ip: request.ip });
+      });
+      allowedIPv6Cidrs.forEach((cidr) => {
+        cidrCheckMiddlewareMetrics.ipsNotInCidrRange.inc({ cidr, ip: request.ip });
+      });
+
+      if (ipCheckEnvironment.singleton.abortConnectionIfInvalidIP) {
         request.socket.destroy();
         return;
       }
 
-      response.noCache();
-      response.contentType('text/html');
-      response.status(403);
-      response.send(
-        '<html><body><h1>403 Forbidden</h1><p>IP Address validation failed. Your IP address is not allowed to access this site.</p></body></html>',
+      loadBalancerResponder.sendMessage(
+        'IP Address validation failed. Your IP address is not allowed to access this site.',
+        request,
+        response,
+        403,
       );
 
       return;

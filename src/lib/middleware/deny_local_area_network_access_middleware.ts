@@ -23,20 +23,14 @@
 import '@lib/extensions/express/request';
 import '@lib/extensions/express/response';
 
-import logger from '@lib/logger';
-import environment from '@lib/environment';
+import lanEnvironment from '@lib/environment/lan_environment';
+import loadBalancerResponder from '@lib/responders/load_balancer_responder';
+import hardcodedResponseWriter from '@lib/writers/hardcoded_response_writer';
+import denyLocalAreaNetworkAccessMiddlewareLogger from '@lib/loggers/middleware/deny_local_area_network_access_middleware_logger';
+import * as denyLocalAreaNetworkAccessMiddlewareMetrics from '@lib/metrics/middleware/deny_local_area_network_access_middleware_metrics';
 
 import net from '@mfdlabs/net';
-import htmlEncode from 'escape-html';
 import { NextFunction, Request, Response } from 'express';
-
-const denyLocalAreaNetworkAccessLogger = new logger(
-  'deny-local-area-network-access-middleware',
-  environment.logLevel,
-  environment.logToFileSystem,
-  environment.logToConsole,
-  environment.loggerCutPrefix,
-);
 
 export default class DenyLocalAreaNetworkAccessMiddleware {
   /**
@@ -47,7 +41,7 @@ export default class DenyLocalAreaNetworkAccessMiddleware {
    * @returns {void} Nothing.
    */
   public static invoke(request: Request, response: Response, next: NextFunction): void {
-    if (!environment.hateLocalAreaNetworkAccess) return next();
+    if (!lanEnvironment.singleton.hateLocalAreaNetworkAccess) return next();
 
     const hostname = request.context.get('hostname') as string;
 
@@ -55,13 +49,23 @@ export default class DenyLocalAreaNetworkAccessMiddleware {
     // should exit the context if they're malformed.
     const resolvedAddress = request.context.get('resolvedAddress') as string;
 
-    if (this._isUniqueLocalAddress(resolvedAddress)) {
+    if (this._isUniqueLocalAddress(resolvedAddress) && !hardcodedResponseWriter.hasRule(request)) {
+      denyLocalAreaNetworkAccessMiddlewareMetrics.hostnamesThatResolveToPrivateIpAddresses.inc({
+        hostname: hostname,
+        ip_address: resolvedAddress,
+      });
+
       this._handleLocalAreaNetworkAccess(hostname, resolvedAddress, request, response);
       return;
     }
 
     if (this._isIp(hostname)) {
-      if (this._isUniqueLocalAddress(hostname)) {
+      if (this._isUniqueLocalAddress(hostname) && !hardcodedResponseWriter.hasRule(request)) {
+        denyLocalAreaNetworkAccessMiddlewareMetrics.hostnamesThatResolveToPrivateIpAddresses.inc({
+          hostname: hostname,
+          ip_address: resolvedAddress,
+        });
+
         this._handleLocalAreaNetworkAccess(hostname, hostname, request, response);
         return;
       }
@@ -76,25 +80,29 @@ export default class DenyLocalAreaNetworkAccessMiddleware {
     request: Request,
     response: Response,
   ): void {
-    denyLocalAreaNetworkAccessLogger.warning(
-      'Request to \'%s\' or \'%s\' is from a LAN, responding with LAN access error',
+    denyLocalAreaNetworkAccessMiddlewareLogger.warning(
+      "Request to '%s' or '%s' is from a LAN, responding with LAN access error",
       hostname,
       resolvedAddres,
     );
     request.fireEvent('localAreaNetworkAccessDenied');
+
+    denyLocalAreaNetworkAccessMiddlewareMetrics.requestsThatWereDenied.inc({
+      method: request.method,
+      hostname: hostname,
+      endpoint: request.path,
+      caller: request.ip,
+    });
 
     let message = '';
 
     if (hostname === resolvedAddres) {
       message = 'Access to that address is forbidden.';
     } else {
-      message = `Access to the address that ${htmlEncode(hostname)} resolved to is forbidden.`;
+      message = `Access to the address that ${hostname} resolved to is forbidden.`;
     }
 
-    response.status(403);
-    response.contentType('text/html');
-    response.noCache();
-    response.send(`<html><body><h1>403 Forbidden</h1><p>${message}</p></body></html>`);
+    loadBalancerResponder.sendMessage(message, request, response, 403);
   }
 
   private static _isUniqueLocalAddress(address: string): boolean {

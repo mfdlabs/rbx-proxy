@@ -20,18 +20,14 @@
     Written by: Nikita Petko
 */
 
+import crawlerEnvironment from '@lib/environment/crawler_environment';
+
 import * as os from 'os';
 
 /**
  * A lot of useful functions for working with networks, such as getting the external IP address, gateway, IP conversions, etc.
  */
 export default abstract class WebUtility {
-  /**
-   * A regex to match the request User-Agent as a potential bot.
-   */
-  private static readonly _crawlerRegex =
-    /[Ss]lurp|[Tt]eoma|Scooter|Mercator|MSNBOT|Gulliver|[Ss]pider|[Aa]rchiver|[Cc]rawler|[Bb]ot[) /_-]|Mediapartners-Google|[Pp]ython-(?=urllib|requests)|c[uU][rR][lL]|wxWidgets|facebookexternalhit|PowerShell|DOSarrest|Feedfetcher|Roblox diag2|BingPreview|Jakarta|LuaSocket|VortaxiaWebflow|ADmantX|A6-Indexer|Dalvik|Roblox\/WinHttp|Roblox\/WinInet$|Java\/1|^Get Request$|XaxisSemanticsClassifier|compatible;\\s+Synapse|^Google favicon$|SkypeUriPreview|[Ll]ynx|[Uu]ptime\\.com|package http|^expo9|WebIndex|ogic[Mm]onitor|HitLeap|StatusCake|statuscake/;
-
   /**
    * Generates a random UUIDv4 string.
    * @returns {string} A random UUIDv4 string.
@@ -58,6 +54,16 @@ export default abstract class WebUtility {
    * @returns {boolean} True if the user-agent is a crawler, false otherwise.
    */
   public static isCrawler(userAgent: string): boolean {
-    return this._crawlerRegex.test(userAgent);
+    return crawlerEnvironment.singleton.commonCrawlerRegex.test(userAgent);
+  }
+
+  /**
+   * Determines if the input user-agent is a browser.
+   * @param {string} userAgent The user-agent to check.
+   * @returns {boolean} True if the user-agent is a browser, false otherwise.
+   * @remarks This function is not 100% accurate, but it's good enough for most cases.
+   */
+  public static isBrowser(userAgent: string): boolean {
+    return crawlerEnvironment.singleton.knownBrowserRegex.test(userAgent);
   }
 }

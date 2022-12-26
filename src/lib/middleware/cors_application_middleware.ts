@@ -22,19 +22,12 @@
 
 import '@lib/extensions/express/request';
 
-import logger from '@lib/logger';
-import environment from '@lib/environment';
-import corsWriter from '@lib/proxy/cors_writer';
+import corsWriter from '@lib/writers/cors_writer';
+import corsEnvironment from '@lib/environment/cors_environment';
+import corsApplicationMiddlewareLogger from '@lib/loggers/middleware/cors_application_middleware_logger';
+import * as corsApplicationMiddlewareMetrics from '@lib/metrics/middleware/cors_application_middleware_metrics';
 
 import { NextFunction, Request, Response } from 'express';
-
-const corsApplicationMiddlewareLogger = new logger(
-  'cors-application-middleware',
-  environment.logLevel,
-  environment.logToFileSystem,
-  environment.logToConsole,
-  environment.loggerCutPrefix,
-);
 
 export default class CorsApplicationMiddleware {
   /**
@@ -45,7 +38,7 @@ export default class CorsApplicationMiddleware {
    * @returns {void} Nothing.
    */
   public static invoke(request: Request, response: Response, next: NextFunction): void {
-    if (!environment.enableCorsWriter) return next();
+    if (!corsEnvironment.singleton.enableCorsWriter) return next();
 
     const origin = request.headers.origin;
 
@@ -53,14 +46,19 @@ export default class CorsApplicationMiddleware {
     // will determine if that axios response can overwrite these headers if they're present in that response.
     request.context.set('allowCorsHeaderOverwrite', true);
 
-    if (origin || environment.corsApplyHeadersRegardlessOfOriginHeader) {
+    if (origin || corsEnvironment.singleton.corsApplyHeadersRegardlessOfOriginHeader) {
       corsApplicationMiddlewareLogger.information(
-        'Try apply CORs headers to the response with origin \'%s\'.',
+        "Try apply CORs headers to the response with origin '%s'.",
         origin || '<none>',
       );
       request.fireEvent('ApplyCorsHeaders', origin || '<none>');
 
       request.context.set('allowCorsHeaderOverwrite', this._applyCorsHeaders(origin, request, response));
+
+      corsApplicationMiddlewareMetrics.appliedCorsHeaders.inc({
+        old_origin: origin || '<none>',
+        transformed_origin: (response.getHeader('Access-Control-Allow-Origin') as string) || '<none>',
+      });
     }
 
     next();
@@ -89,7 +87,7 @@ export default class CorsApplicationMiddleware {
     if (
       this._isOriginAllowed(allowedOrigins, origin) ||
       rule.allowRequestOriginIfNoAllowedOrigins ||
-      environment.corsApplyHeadersRegardlessOfOrigin
+      corsEnvironment.singleton.corsApplyHeadersRegardlessOfOrigin
     ) {
       if (rule.allowedOrigins.includes('*')) response.setHeader('Access-Control-Allow-Origin', '*');
       else {
