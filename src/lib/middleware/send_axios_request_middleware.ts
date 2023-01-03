@@ -156,7 +156,7 @@ export default class SendAxiosRequestMiddleware {
         caller: request.ip,
       });
 
-      configuration.headers.origin = transformedOrigin;
+      configuration.headers["origin"] = transformedOrigin;
     }
 
     const transformedReferer = request.context.get('transformedReferer') as string;
@@ -170,7 +170,7 @@ export default class SendAxiosRequestMiddleware {
         caller: request.ip,
       });
 
-      configuration.headers.referer = transformedReferer;
+      configuration.headers["referer"] = transformedReferer;
     }
 
     if (!axiosEnvironment.singleton.enableCertificateValidation) {
