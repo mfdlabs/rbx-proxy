@@ -30,7 +30,7 @@
     "@types/spdy": "^3.4.4",
     "@typescript-eslint/eslint-plugin": "^5.41.0",
     "@typescript-eslint/parser": "^5.40.1",
-    "eslint": "^8.26.0",
+    "eslint": "^8.31.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-jsdoc": "^39.6.4",
     "prettier": "^2.7.1",
