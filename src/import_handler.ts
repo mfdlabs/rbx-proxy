@@ -29,8 +29,9 @@ import * as prometheus from 'prom-client';
 const CH_PERIOD = 0x2e as const;
 const CH_AT = 0x40 as const;
 
-const baseUrl = path.dirname(require.main.filename);
+export const baseUrl = path.dirname(require.main.filename);
 const paths = require.main.paths;
+export const nodeModulesPath = paths[1];
 
 const cache = {};
 
@@ -44,6 +45,16 @@ const moduleDependencies = new prometheus.Gauge({
 });
 
 const dependants = new Map<string, string[]>();
+
+// If we were called by the entrypoint then we want to add the entrypoint as a dependency.
+
+const thisName = `@entrypoint/${path.basename(__filename).replace(/\.ts$/, '').replace(/\.js$/, '')}`;
+
+if (!dependants.has(thisName)) {
+  dependants.set(thisName, ['@entrypoint']);
+
+  moduleDependencies.set({ module_name: thisName, parent_module_dependency_names: '@entrypoint' }, 1);
+}
 
 function convertFileToSourceName(file: string, isNodeModule: boolean = false, isCoreModule: boolean = false): string {
   // If it is under src/xxx.ts then we want to convert it to xxx.
@@ -77,6 +88,9 @@ function convertFileToSourceName(file: string, isNodeModule: boolean = false, is
   file = file.replace(/\/index$/, '');
   file = file.replace(/^index$/, '@entrypoint');
 
+  // Remove ../
+  file = file.replace(/\.\.\//g, '');
+
   // if it is just the file on its own (no slashes) then make it @entrypoint/xxx
   if (!file.includes('/') && file !== '@entrypoint' && !isNodeModule && !isCoreModule) {
     file = '@entrypoint/' + file;
@@ -97,7 +111,7 @@ function convertFileToSourceName(file: string, isNodeModule: boolean = false, is
 }
 
 function isNodeModule(file: string): boolean {
-  const nodeModulePath = path.join(paths[1], file);
+  const nodeModulePath = path.join(nodeModulesPath, file);
 
   return fs.existsSync(nodeModulePath);
 }
@@ -119,9 +133,6 @@ moduleProto.require = function (id: string) {
     if (!path.isAbsolute(id) && id.charCodeAt(0) !== CH_PERIOD) {
       // If it starts with @ but isn't in node_modules, it's probably a file path.
       if (id.charCodeAt(0) === CH_AT) {
-        // Normally the second string within paths is the node_modules path.
-        const nodeModulesPath = paths[1];
-
         if (nodeModulesPath.includes('node_modules')) {
           // Join the nodeModules path with the request.
           const nodeModulePath = path.join(nodeModulesPath, id);
@@ -177,17 +188,19 @@ moduleProto.require = function (id: string) {
         const dependantList = dependants.get(module);
         const oldList = dependantList.join(',');
 
-        dependantList.push(name);
-        dependants.set(module, dependantList);
+        if (!dependantList.includes(name)) {
+          dependantList.push(name);
+          dependants.set(module, dependantList);
 
-        // Rebuild the list of dependants, remove all the old ones and add the new ones
-        moduleDependencies.remove(module, oldList);
+          // Rebuild the list of dependants, remove all the old ones and add the new ones
+          moduleDependencies.remove(module, oldList);
 
-        // Reregister the metric
+          // Reregister the metric
 
-        for (const [key, value] of dependants) {
-          // value of guage is the count of dependants
-          moduleDependencies.set({ module_name: key, parent_module_dependency_names: value.join(',') }, value.length);
+          for (const [key, value] of dependants) {
+            // value of guage is the count of dependants
+            moduleDependencies.set({ module_name: key, parent_module_dependency_names: value.join(',') }, value.length);
+          }
         }
       }
     } else {

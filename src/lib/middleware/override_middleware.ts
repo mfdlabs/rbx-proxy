@@ -21,6 +21,9 @@
     Written by: Nikita Petko
 */
 
+import addRequestExtensionMethods from '@lib/extensions/express/request';
+import addResponseExtensionMethods from '@lib/extensions/express/response';
+
 import * as overrideMiddlewareMetrics from '@lib/metrics/middleware/override_middleware_metrics';
 
 import { NextFunction, Request, Response } from 'express';
@@ -34,49 +37,56 @@ export default class OverrideMiddleware {
    * @returns {void} Nothing.
    */
   public static invoke(request: Request, response: Response, next: NextFunction): void {
-    const oldEnd = response.end;
+    addRequestExtensionMethods(request);
+    addResponseExtensionMethods(response);
 
-    const start = Date.now();
+    try {
+      const oldEnd = response.end;
 
-    Object.defineProperty(response, 'end', {
-      writable: true,
-      value(this: Response, ...args: any[]) {
-        OverrideMiddleware._shuffleArray(this.getHeaderNames()).forEach((headerName: string) => {
-          const headerValue = this.getHeader(headerName);
-          this.removeHeader(headerName);
-          this.setHeader(headerName.toLowerCase(), headerValue);
-        });
+      const start = Date.now();
 
-        // Apply connection: close header if it was not set by the user.
-        if (!this.getHeader('connection')) {
-          this.append('connection', 'close');
-        }
+      Object.defineProperty(response, 'end', {
+        writable: true,
+        value(this: Response, ...args: any[]) {
+          OverrideMiddleware._shuffleArray(this.getHeaderNames()).forEach((headerName: string) => {
+            const headerValue = this.getHeader(headerName);
+            this.removeHeader(headerName);
+            this.setHeader(headerName.toLowerCase(), headerValue);
+          });
 
-        this.append('date', new Date().toUTCString());
+          // Apply connection: close header if it was not set by the user.
+          if (!this.getHeader('connection')) {
+            this.append('connection', 'close');
+          }
 
-        // Clear request context.
-        request.context.clear();
+          this.append('date', new Date().toUTCString());
 
-        overrideMiddlewareMetrics.responseTimeHistogram
-          .labels(
-            request.method,
-            request.headers.host || 'No Host Header',
-            request.path,
-            this.statusCode.toString(),
-            request.ip,
-          )
-          .observe((Date.now() - start) / 1000);
+          // Clear request context.
+          request.context.clear();
 
-        oldEnd.apply(this, args);
-      },
-    });
+          overrideMiddlewareMetrics.responseTimeHistogram
+            .labels(
+              request.method,
+              request.headers.host || 'No Host Header',
+              request.path,
+              this.statusCode.toString(),
+              request.ip,
+            )
+            .observe((Date.now() - start) / 1000);
 
-    // Transform all request headers to lowercase.
-    request.headers = Object.fromEntries(
-      Object.entries(request.headers).map(([key, value]) => [key.toLowerCase(), value]),
-    );
+          oldEnd.apply(this, args);
+        },
+      });
 
-    next();
+      // Transform all request headers to lowercase.
+      request.headers = Object.fromEntries(
+        Object.entries(request.headers).map(([key, value]) => [key.toLowerCase(), value]),
+      );
+
+      next();
+    } catch (error) {
+      next(error);
+    }
   }
 
   private static _shuffleArray(array: string[]): string[] {

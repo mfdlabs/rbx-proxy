@@ -22,19 +22,51 @@
 
 export {};
 
+import loadBalancerResponder from '@lib/responders/load_balancer_responder';
+
 import * as express from 'express';
 
-// Method: noCache
-// Description: Sets the response to no cache.
-// Language: typescript
-if (!express.response.hasOwnProperty('noCache')) {
-  Object.defineProperty(express.response, 'noCache', {
-    value: function noCache() {
-      this.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      this.setHeader('Pragma', 'no-cache');
-      this.setHeader('Expires', '0');
+/**
+ * Manages the extensions to the express response object.
+ * @param {express.Response} responsePrototype The express response object.
+ * @returns {void} Nothing.
+ */
+export default function (responsePrototype: express.Response): void {
+  if (!responsePrototype) return;
 
-      return this;
-    },
-  });
+  // Method: noCache
+  // Description: Sets the response to no cache.
+  // Language: typescript
+  if (!responsePrototype.hasOwnProperty('noCache')) {
+    Object.defineProperty(responsePrototype, 'noCache', {
+      value: function noCache() {
+        this.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        this.setHeader('Pragma', 'no-cache');
+        this.setHeader('Expires', '0');
+
+        return this;
+      },
+    });
+  }
+
+  // Method: sendMessage
+  // Description: Sends a message to the client.
+  // Language: typescript
+  if (!responsePrototype.hasOwnProperty('sendMessage')) {
+    Object.defineProperty(responsePrototype, 'sendMessage', {
+      value: function sendMessage(this: express.Response, ...args: any[]) {
+        loadBalancerResponder.sendMessage(
+          args[0],
+          this.req,
+          this,
+          args[1],
+          args[2],
+          args[3],
+          args[4],
+          args[5],
+          args[6],
+        );
+      },
+    });
+  }
 }

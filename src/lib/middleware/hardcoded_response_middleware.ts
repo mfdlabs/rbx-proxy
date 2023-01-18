@@ -20,8 +20,6 @@
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/request';
-
 import hardcodedResponseWriter from '@lib/writers/hardcoded_response_writer';
 import hardcodedResponseMiddlewareLogger from '@lib/loggers/middleware/hardcoded_response_middleware_logger';
 import * as hardcodedResponseMiddlewareMetrics from '@lib/metrics/middleware/hardcoded_response_middleware_metrics';

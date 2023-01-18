@@ -20,15 +20,13 @@
     Written by: <blah blah blah>
 */
 
-import '@lib/extensions/express/response';
-
 import webUtility from '@lib/utility/web_utility';
 import baseEnvironment from '@lib/environment/base_environment';
 import pathEnvironment from '@lib/environment/path_environment';
-import loadBalancerResponder from '@lib/responders/load_balancer_responder';
 import configMiddlewareLogger from '@lib/loggers/middleware/config_middleware_logger';
 
 import net from '@mfdlabs/net';
+import htmlEncode from 'escape-html';
 import { NextFunction, Request, Response } from 'express';
 
 export default class ConfigMiddleware {
@@ -52,7 +50,7 @@ export default class ConfigMiddleware {
       ) {
         configMiddlewareLogger.warning(`Request from ${request.ip} is not allowed to access the config endpoint.`);
 
-        return loadBalancerResponder.sendMessage('IP check failed.', request, response, 403);
+        return response.sendMessage(['IP check failed.'], 403);
       }
 
       configMiddlewareLogger.information('Request is a config request, responding with env vars.');
@@ -64,6 +62,23 @@ export default class ConfigMiddleware {
         process.version
       }'\nNODE_PLATFORM => '${process.platform}'\nNODE_ARCH => '${process.arch}'\n`;
 
+      const json = {
+        retrieved: new Date().toISOString(),
+        machineID: webUtility.getMachineID(),
+        nodeVersion: process.version,
+        nodePlatform: process.platform,
+        nodeArch: process.arch,
+
+        env: [] as {
+          name: string;
+          value: any;
+          type: string;
+          environmentVariable: string;
+          environmentName: string;
+          isOverridden: boolean;
+        }[],
+      };
+
       const values = baseEnvironment.getValues();
       let lastEnvironmentName = '';
       for (const key in values) {
@@ -72,7 +87,8 @@ export default class ConfigMiddleware {
         let envName = env.constructor.name;
         envName = envName.charAt(0).toLowerCase() + envName.slice(1);
 
-        if (envName !== lastEnvironmentName) str += `\n\n### ENVIRONMENT: ${envName} ###\n`;
+        if (envName !== lastEnvironmentName)
+          str += `\n\n### ENVIRONMENT: ${envName} (${env.getEnvironmentName()}) ###\n`;
 
         lastEnvironmentName = envName;
 
@@ -94,7 +110,25 @@ export default class ConfigMiddleware {
             key,
           )} ${envName}.${baseEnvironment.getCallerForVariable(key)} => ${valueStr}\n`;
         }
+
+        json.env.push({
+          name: baseEnvironment.getCallerForVariable(key),
+          value: value instanceof RegExp ? value.toString() : value,
+          type: baseEnvironment.getTrackedVariableType(key),
+          environmentVariable: key,
+          environmentName: `${envName} (${env.getEnvironmentName()})`,
+          isOverridden: env.isVariableOverridden(key),
+        });
       }
+
+      const { format } = request.query as { [key: string]: string };
+
+      if (format?.toLocaleLowerCase() === 'json') {
+        response.contentType('application/json');
+        response.send(JSON.stringify(json, null, 2));
+        return;
+      }
+
       response.send(str);
 
       return;
@@ -108,7 +142,7 @@ export default class ConfigMiddleware {
 
         // If there is no body, error.
         if (rawBody === undefined || rawBody === null || rawBody === '') {
-          loadBalancerResponder.sendMessage('No body was provided.', request, response, 400);
+          response.sendMessage(['No body was provided.'], 400);
           return;
         }
 
@@ -116,7 +150,7 @@ export default class ConfigMiddleware {
           let contentType = request.headers['content-type'];
 
           if (contentType === undefined) {
-            loadBalancerResponder.sendMessage('Content-Type header is missing.', request, response, 400);
+            response.sendMessage(['Content-Type header is missing.'], 400);
             return;
           }
 
@@ -136,16 +170,23 @@ export default class ConfigMiddleware {
               body = new URLSearchParams(rawBody);
               break;
             default:
-              loadBalancerResponder.sendMessage(
-                `Content-Type '${contentType}' is not supported. Only text/json, application/json, application/x-www-form-urlencoded are supported.`,
-                request,
-                response,
+              response.sendMessage(
+                [
+                  `Content-Type is not supported.\nContent-Type: <b>${htmlEncode(
+                    contentType,
+                  )}</b>\nSupported Content-Types: <b>application/json</b>, <b>text/json</b>, <b>application/x-www-form-urlencoded</b>`,
+                  undefined,
+                  true,
+                ],
                 400,
               );
               return;
           }
         } catch (error) {
-          loadBalancerResponder.sendMessage(`Failed to parse body: ${error.message}`, request, response, 400);
+          response.sendMessage(
+            [`Failed to parse body.\nError: <b>${htmlEncode(error.message)}</b>`, undefined, true],
+            400,
+          );
           return;
         }
       } else {
@@ -155,21 +196,21 @@ export default class ConfigMiddleware {
       const { environmentName, key, value } = body;
 
       if (!environmentName) {
-        loadBalancerResponder.sendMessage("Required parameter 'environmentName' is missing.", request, response, 400);
+        ConfigMiddleware._requiredParameterMissing('environmentName', request, response);
         return;
       }
       if (!key) {
-        loadBalancerResponder.sendMessage("Required parameter 'key' is missing.", request, response, 400);
+        ConfigMiddleware._requiredParameterMissing('key', request, response);
         return;
       }
 
       // Do not allow multiple names.
       if (typeof environmentName !== 'string') {
-        loadBalancerResponder.sendMessage("Parameter 'environmentName' must be a string.", request, response, 400);
+        ConfigMiddleware._parameterMustBeType('environmentName', 'string', request, response);
         return;
       }
       if (typeof key !== 'string') {
-        loadBalancerResponder.sendMessage("Parameter 'key' must be a string.", request, response, 400);
+        ConfigMiddleware._parameterMustBeType('key', 'string', request, response);
         return;
       }
 
@@ -179,7 +220,10 @@ export default class ConfigMiddleware {
 
       const env = baseEnvironment.getEnvironment(environmentName);
       if (env === undefined) {
-        loadBalancerResponder.sendMessage(`Environment '${environmentName}' does not exist.`, request, response, 404);
+        response.sendMessage(
+          [`Environment does not exist.\nEnvironment: <b>${htmlEncode(environmentName)}</b>`, undefined, true],
+          404,
+        );
         return;
       }
 
@@ -203,10 +247,14 @@ export default class ConfigMiddleware {
         : baseEnvironment.doesVariableExistInEnvironmentByCaller.bind(baseEnvironment);
 
       if (!existsFunc(environmentName, isEnvironmentVariable ? actualKey : key)) {
-        loadBalancerResponder.sendMessage(
-          `Variable '${actualEnvironmentName}${key}' does not exist.`,
-          request,
-          response,
+        response.sendMessage(
+          [
+            `Variable does not exist.\nVariable: <b>${htmlEncode(actualEnvironmentName)}${htmlEncode(
+              key,
+            )}</b>\nEnvironment: <b>${htmlEncode(environmentName)}</b>`,
+            undefined,
+            true,
+          ],
           404,
         );
 
@@ -215,10 +263,14 @@ export default class ConfigMiddleware {
 
       if (isReset) {
         if (!env.isVariableOverridden(actualKey)) {
-          loadBalancerResponder.sendMessage(
-            `Variable '${actualEnvironmentName}${key}' is not overridden, so it cannot be reset.`,
-            request,
-            response,
+          response.sendMessage(
+            [
+              `Variable is not overridden, so it cannot be reset.\nVariable: <b>${htmlEncode(
+                actualEnvironmentName,
+              )}${htmlEncode(key)}</b>\nEnvironment: <b>${htmlEncode(environmentName)}</b>`,
+              undefined,
+              true,
+            ],
             400,
           );
 
@@ -229,12 +281,18 @@ export default class ConfigMiddleware {
 
         env.removeOverriddenVariableWithReplication(actualKey);
 
-        loadBalancerResponder.sendMessage(
-          `Variable '${actualEnvironmentName}${key}' has been reset. It had value '${overriddenValue}' but now has value '${env.getOrDefault(
-            actualKey,
-          )}'.`,
-          request,
-          response,
+        response.sendMessage(
+          [
+            `Variable has been reset.\nVariable: <b>${htmlEncode(actualEnvironmentName)}${htmlEncode(
+              key,
+            )}</b>\nEnvironment: <b>${htmlEncode(environmentName)}</b>\nValue: <b>${htmlEncode(
+              overriddenValue.toString().substring(0, 100),
+            )}</b>\nNew Value: <b>${htmlEncode(
+              baseEnvironment.getTrackedVariableValue(actualKey)?.toString().substring(0, 100) ?? 'Unknown',
+            )}</b>`,
+            undefined,
+            true,
+          ],
           200,
         );
 
@@ -250,12 +308,16 @@ export default class ConfigMiddleware {
       }
 
       if (env.isVariableOverridden(actualKey)) {
-        loadBalancerResponder.sendMessage(
-          `Variable '${actualEnvironmentName}${key}' is already overridden with value '${env.getOverridenVariable(
-            actualKey,
-          )}'.`,
-          request,
-          response,
+        response.sendMessage(
+          [
+            `Variable is already overridden.\nVariable: <b>${htmlEncode(actualEnvironmentName)}${htmlEncode(
+              key,
+            )}</b>\nEnvironment: <b>${htmlEncode(environmentName)}</b>\nValue: <b>${htmlEncode(
+              env.getOverridenVariable(actualKey).toString().substring(0, 100),
+            )}</b>`,
+            undefined,
+            true,
+          ],
           400,
         );
 
@@ -266,10 +328,16 @@ export default class ConfigMiddleware {
 
       const [isValid, convetedValue] = this._tryConvertTo(value, type);
       if (!isValid) {
-        loadBalancerResponder.sendMessage(
-          `Variable '${actualEnvironmentName}${key}' is of type '${type}' but value '${value}' is not valid.`,
-          request,
-          response,
+        response.sendMessage(
+          [
+            `Supplied typeof variable value is not valid.\nVariable: <b>${htmlEncode(
+              actualEnvironmentName,
+            )}${htmlEncode(key)}</b>\nEnvironment: <b>${htmlEncode(environmentName)}</b>\nActual Type: <b>${htmlEncode(
+              typeof value,
+            )}</b>\nExpected Type: <b>${htmlEncode(type)}</b>`,
+            undefined,
+            true,
+          ],
           400,
         );
 
@@ -278,10 +346,16 @@ export default class ConfigMiddleware {
 
       env.overrideVariableWithReplication(actualKey, convetedValue);
 
-      loadBalancerResponder.sendMessage(
-        `Variable '${actualEnvironmentName}${key}' has been overridden with value '${convetedValue}'.`,
-        request,
-        response,
+      response.sendMessage(
+        [
+          `Variable has been overridden.\nVariable: <b>${htmlEncode(actualEnvironmentName)}${htmlEncode(
+            key,
+          )}</b>\nEnvironment: <b>${htmlEncode(environmentName)}</b>\nValue: <b>${htmlEncode(
+            convetedValue.toString().substring(0, 100),
+          )}</b>`,
+          undefined,
+          true,
+        ],
         200,
       );
 
@@ -342,11 +416,33 @@ export default class ConfigMiddleware {
     }
   }
 
+  private static _requiredParameterMissing(parameterName: string, request: Request, response: Response): void {
+    response.sendMessage(
+      [`Required parameter missing.\nParameter: <b>${htmlEncode(parameterName)}</b>`, undefined, true],
+      400,
+    );
+  }
+
+  private static _parameterMustBeType(parameterName: string, type: string, request: Request, response: Response): void {
+    response.sendMessage(
+      [
+        `Parameter must be of type <b>${htmlEncode(type)}</b>.\nParameter: <b>${htmlEncode(parameterName)}</b>`,
+        undefined,
+        true,
+      ],
+      400,
+    );
+  }
+
   private static _tryConvertTo(value: any, type: string): [boolean, any] {
     const convertedValue = this._convertTo(value, type);
 
     if (Array.isArray(convertedValue)) {
       return [convertedValue.every((v) => v !== undefined), convertedValue];
+    }
+
+    if (typeof convertedValue === 'number') {
+      return [!Number.isNaN(convertedValue), convertedValue];
     }
 
     return [convertedValue !== undefined, convertedValue];

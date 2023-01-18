@@ -20,8 +20,6 @@
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/request';
-
 import loggingMiddlewareLogger from '@lib/loggers/middleware/logging_middleware_logger';
 import * as loggingMiddlewareMetrics from '@lib/metrics/middleware/logging_middleware_metrics';
 

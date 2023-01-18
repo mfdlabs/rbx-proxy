@@ -21,7 +21,6 @@
 */
 
 import pathEnvironment from '@lib/environment/path_environment';
-import loadBalancerResponder from '@lib/responders/load_balancer_responder';
 import metricsMiddlewareLogger from '@lib/loggers/middleware/metrics_middleware_logger';
 
 import net from '@mfdlabs/net';
@@ -49,7 +48,7 @@ export default class MetricsMiddleware {
       ) {
         metricsMiddlewareLogger.warning(`Request from ${request.ip} is not allowed to access the metrics endpoint.`);
 
-        return loadBalancerResponder.sendMessage('IP check failed.', request, response, 403);
+        return response.sendMessage(['IP check failed.'], 403);
       }
 
       metricsMiddlewareLogger.information('Request is a metrics request, responding with prometheus metrics page');

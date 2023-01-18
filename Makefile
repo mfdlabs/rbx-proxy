@@ -41,5 +41,3 @@ ifdef CI
 	docker rmi $(IMAGE_NAME):latest
 endif
 endif
-
-.PHONY: build

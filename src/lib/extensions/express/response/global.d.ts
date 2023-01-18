@@ -31,6 +31,29 @@ declare global {
        * @memberof Response
        */
       noCache(): void;
+
+      /**
+       * Write a loadbalancer message.
+       *
+       * @param {[string, string?, boolean?]} message The message to send.
+       * @param {number=} statusCode The status code to send.
+       * @param {[string, string?, boolean?]?} titleOrUserFacingMessage The title of the message or a user-facing message for API based responses.
+       * @param {boolean=} noCache Whether to send no-cache headers.
+       * @param {Record<string, string>?} extraHeaders Extra headers to send.
+       * @param {[boolean, string, string?, boolean?][]?} extraDetails Extra details to send.
+       * @param {boolean=} inContainer Whether to send the message in a container.
+       * @returns {void} Nothing.
+       * @memberof Response
+       */
+      sendMessage(
+        message: [string, string?, boolean?],
+        statusCode?: number,
+        titleOrUserFacingMessage?: [string, string?, boolean?],
+        noCache?: boolean,
+        extraHeaders?: Record<string, string>,
+        extraDetails?: [boolean, string, string?, boolean?][],
+        inContainer?: boolean,
+      ): void;
     }
   }
 }

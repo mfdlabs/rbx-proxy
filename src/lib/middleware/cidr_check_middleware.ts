@@ -22,10 +22,7 @@
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/response';
-
 import ipCheckEnvironment from '@lib/environment/ip_check_environment';
-import loadBalancerResponder from '@lib/responders/load_balancer_responder';
 import cidrCheckMiddlewareLogger from '@lib/loggers/middleware/cidr_check_middleware_logger';
 import * as cidrCheckMiddlewareMetrics from '@lib/metrics/middleware/cidr_check_middleware_metrics';
 
@@ -64,12 +61,7 @@ export default class CidrCheckMiddleware {
         return;
       }
 
-      loadBalancerResponder.sendMessage(
-        'IP Address validation failed. Your IP address is not allowed to access this site.',
-        request,
-        response,
-        403,
-      );
+      response.sendMessage(['IP Address validation failed.'], 403);
 
       return;
     }

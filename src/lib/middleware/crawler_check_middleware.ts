@@ -21,11 +21,8 @@
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/response';
-
 import webUtility from '@lib/utility/web_utility';
 import crawlerEnvironment from '@lib/environment/crawler_environment';
-import loadBalancerResponder from '@lib/responders/load_balancer_responder';
 import crawlerCheckMiddlewareLogger from '@lib/loggers/middleware/crawler_check_middleware_logger';
 import * as crawlerCheckMiddlewareMetrics from '@lib/metrics/middleware/crawler_check_middleware_metrics';
 
@@ -45,17 +42,18 @@ export default class CrawlerCheckMiddleware {
     if (webUtility.isCrawler(request.headers['user-agent'])) {
       crawlerCheckMiddlewareLogger.log("Crawler detected: '%s'", request.headers['user-agent']);
 
-      crawlerCheckMiddlewareMetrics.callersThatAreCrawlers.inc({ caller: request.ip, user_agent: request.headers['user-agent'] });
+      crawlerCheckMiddlewareMetrics.callersThatAreCrawlers.inc({
+        caller: request.ip,
+        user_agent: request.headers['user-agent'],
+      });
 
       if (crawlerEnvironment.singleton.abortConnectionIfCrawler) {
         request.socket.destroy();
         return;
       }
 
-      loadBalancerResponder.sendMessage(
-        'Crawlers are not allowed to access this site. Please use a browser instead.',
-        request,
-        response,
+      response.sendMessage(
+        ['Crawlers are not allowed to access this site.\nPlease use a browser instead.'],
         403,
       );
 

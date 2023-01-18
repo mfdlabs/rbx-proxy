@@ -21,7 +21,6 @@
 */
 
 import pathEnvironment from '@lib/environment/path_environment';
-import loadBalancerResponder from '@lib/responders/load_balancer_responder';
 
 import net from '@mfdlabs/net';
 import { NextFunction, Request, Response } from 'express';
@@ -45,7 +44,7 @@ export default class TestExceptionMiddleware {
         !net.isIPv4InCidrRangeList(request.ip, allowedIPv4Addresses) &&
         !net.isIPv6InCidrRangeList(request.ip, allowedIPv6Addresses)
       ) {
-        return loadBalancerResponder.sendMessage('IP check failed.', request, response, 403);
+        return response.sendMessage(['IP check failed.'], 403);
       }
 
       next(new Error('Test exception'));

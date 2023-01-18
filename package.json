@@ -1,6 +1,6 @@
 {
-  "name": "rbx-proxy",
-  "version": "1.0.0",
+  "name": "@mfdlabs/rbx-proxy",
+  "version": "1.1.9-4662616.5",
   "description": "A website for proxying host based requests and transforming Roblox Test Site Hostnames to Production Hostnames",
   "main": "dist/index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "build": "npm run clean && npm run compile",
     "build-full": "node path.js && npm ci && npm update && npm run build",
     "clean": "tsc -b --clean tsconfig.json",
-    "compile": "tsc -b -v --listEmittedFiles tsconfig.json",
+    "compile": "node updateVersion.js && tsc -b -v --listEmittedFiles tsconfig.json",
     "lint": "eslint -c .eslintrc --fix",
     "lint-ci": "eslint -c .eslintrc",
     "format": "prettier --write \"src/**/*.ts\" \"src/**/*.js\"",
@@ -34,6 +34,7 @@
     "eslint-config-prettier": "^8.6.0",
     "eslint-plugin-jsdoc": "^39.6.4",
     "prettier": "^2.8.2",
+    "@types/stack-trace": "^0.0.30",
     "source-map-support": "^0.5.21",
     "typescript": "^4.9.4"
   },
@@ -50,6 +51,12 @@
     "express": "^4.18.2",
     "js-yaml": "^4.1.0",
     "prom-client": "^14.1.1",
-    "spdy": "^4.0.2"
-  }
+    "spdy": "^4.0.2",
+    "node-cache": "^5.1.2",
+    "source-code-error": "^1.1.1",
+    "stack-trace": "^0.0.10"
+  },
+  "files": [
+    "dist"
+  ]
 }

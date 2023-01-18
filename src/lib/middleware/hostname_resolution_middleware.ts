@@ -20,17 +20,18 @@
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/request';
-import '@lib/extensions/express/response';
-
+import dns from '@lib/dns';
 import hostnameEnvironment from '@lib/environment/hostname_environment';
-import loadBalancerResponder from '@lib/responders/load_balancer_responder';
 import hardcodedResponseWriter from '@lib/writers/hardcoded_response_writer';
 import hostnameResolutionMiddlewareLogger from '@lib/loggers/middleware/hostname_resolution_middleware_logger';
 import * as hostnameResolutionMiddlewareMetrics from '@lib/metrics/middleware/hostname_resolution_middleware_metrics';
 
-import net from '@mfdlabs/net';
+import htmlEncode from 'escape-html';
+import memoryCache from 'node-cache';
 import { NextFunction, Request, Response } from 'express';
+
+const dnsNameCache = new memoryCache({ stdTTL: 300, checkperiod: 600 });
+const dnsClient = new dns();
 
 export default class HostnameResolutionMiddleware {
   /**
@@ -59,7 +60,7 @@ export default class HostnameResolutionMiddleware {
       return;
     }
 
-    const resolvedHostname = await net.resolveHostname(hostname);
+    const resolvedHostname = await this._resolveHostname(hostname);
 
     hostnameResolutionMiddlewareLogger.debug(
       "Resolved hostname for '%s' to '%s'.",
@@ -87,6 +88,26 @@ export default class HostnameResolutionMiddleware {
     next();
   }
 
+  private static async _resolveHostname(hostname: string): Promise<string | undefined> {
+    const cached = dnsNameCache.get<string>(hostname);
+
+    if (cached !== undefined) {
+      hostnameResolutionMiddlewareLogger.debug('Hostname %s was cached, returning cached value.', hostname);
+      return cached;
+    }
+
+    const resolvedHostname = (await dnsClient.resolve(hostname)).shift()?.value;
+
+    if (typeof resolvedHostname !== 'string' || this._notTruthy(resolvedHostname)) {
+      hostnameResolutionMiddlewareLogger.debug('Hostname %s could not be resolved.', hostname);
+      return undefined;
+    }
+
+    hostnameResolutionMiddlewareLogger.debug('Hostname %s was resolved to %s.', hostname, resolvedHostname);
+    dnsNameCache.set(hostname, resolvedHostname);
+    return resolvedHostname;
+  }
+
   private static _handleNxDomain(hostname: string, request: Request, response: Response) {
     hostnameResolutionMiddlewareLogger.warning(
       "Resolved host for '%s' is undefined or null, responding with invalid hostname error",
@@ -96,10 +117,12 @@ export default class HostnameResolutionMiddleware {
 
     hostnameResolutionMiddlewareMetrics.hostnamesThatDidNotResolve.inc({ hostname });
 
-    loadBalancerResponder.sendMessage(
-      `Cannot satisfy request because the hostname ${request.hostname} could not be resolved.`,
-      request,
-      response,
+    response.sendMessage(
+      [
+        `Cannot satisfy request because the hostname could not be resolved.\nHostname: <b>${htmlEncode(hostname)}</b>`,
+        undefined,
+        true,
+      ],
       503,
     );
   }
@@ -133,12 +156,7 @@ export default class HostnameResolutionMiddleware {
       caller: request.ip,
     });
 
-    loadBalancerResponder.sendMessage(
-      `Cannot satisfy request because the host header is missing.`,
-      request,
-      response,
-      400,
-    );
+    response.sendMessage([`Cannot satisfy request because the host header is missing.`], 400);
   }
 
   private static _stripPort(hostname: string): string {

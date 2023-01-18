@@ -21,12 +21,9 @@
 */
 
 import pathEnvironment from '@lib/environment/path_environment';
-import loadBalancerResponder from '@lib/responders/load_balancer_responder';
-import loadBalancerInfoResponder from '@lib/responders/load_balancer_info_responder';
 import healthcheckMiddlewareLogger from '@lib/loggers/middleware/healthcheck_middleware_logger';
 import * as healthcheckMiddlewareMetrics from '@lib/metrics/middleware/healthcheck_middleware_metrics';
 
-import net from '@mfdlabs/net';
 import { NextFunction, Request, Response } from 'express';
 
 export default class HealthcheckMiddleware {
@@ -41,23 +38,20 @@ export default class HealthcheckMiddleware {
     if (!pathEnvironment.singleton.useHealthcheckMiddleware) return next();
 
     if (request.path.toLowerCase() === pathEnvironment.singleton.healthcheckPath) {
-      const allowedIPv4Addresses = pathEnvironment.singleton.allowedIPv4Addresses;
-      const allowedIPv6Addresses = pathEnvironment.singleton.allowedIPv6Addresses;
-
-      if (
-        !net.isIPv4InCidrRangeList(request.ip, allowedIPv4Addresses) &&
-        !net.isIPv6InCidrRangeList(request.ip, allowedIPv6Addresses)
-      ) {
-        healthcheckMiddlewareLogger.warning(
-          `Request from ${request.ip} is not allowed to access the metrics endpoint.`,
-        );
-
-        return loadBalancerResponder.sendMessage('IP check failed.', request, response, 403);
-      }
-
       healthcheckMiddlewareLogger.information('Request is a health check request, responding with health check page');
 
-      loadBalancerInfoResponder.invoke(response, true, true, true);
+      response.setHeader('access-control-allow-origin', '*');
+
+      response.sendMessage(
+        ['Health check successful'],
+        200,
+        ['Health Check Request'],
+        true,
+        {
+          'x-health-check': 'true',
+        },
+        [],
+      );
 
       healthcheckMiddlewareMetrics.healthChecks.inc({ caller: request.ip });
 
