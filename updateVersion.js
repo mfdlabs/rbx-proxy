@@ -45,7 +45,7 @@ let subversion = parseInt(parsedVersion[3]);
 if (commitHash === commit) {
   subversion += 1;
 
-  data.version = `${major}.${minor}.${patch}-${commit}.${subversion}`;
+  data.version = `${major}.${minor}.${patch}-release.${commit}.${subversion}`;
 } else {
   // If patch reaches 10, increment minor and reset patch
   if (patch === 9) {
@@ -61,7 +61,7 @@ if (commitHash === commit) {
     major += 1;
   }
 
-  data.version = `${major}.${minor}.${patch}-${commit}.0`;
+  data.version = `${major}.${minor}.${patch}-release.${commit}.0`;
 }
 
 console.log(`Version: ${data.version}`);
