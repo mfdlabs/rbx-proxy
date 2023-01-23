@@ -818,7 +818,7 @@ export default class HardcodedResponseMiddleware {
                   }
 
                   break;
-                case 'setVarBatchConditional':
+                case 'setVarCase':
                   // Like: {{setVarBatchConditional name type expressions}}
                   // e.g. {{setVarBatchConditional name number 1 eq 2 then 3, 4 eq 5 then 6}}
                   // e.g. {{setVarBatchConditional name number $var1 eq 2 then 3, 4 eq 5 then 6}}
@@ -902,7 +902,7 @@ export default class HardcodedResponseMiddleware {
 				    if (varTypeBatchConditional === 'number') {
                       const parsedVarValueBatchConditional = this._parseNumber(math.evaluate(defaultSetTo));
                       if (isNaN(parsedVarValueBatchConditional)) {
-                        throw new Error(
+                        throw new Error(i
                           `Cannot replace body template, invalid default for setVarBatchConditional: ${defaultSetTo}`,
                         );
                       }
