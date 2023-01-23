@@ -18,6 +18,7 @@ src/lib/directories.ts
 !ssl
 !package*.json
 !path.js
+!updateVersion.js
 !LICENSE
 !README.md
 !tsconfig.json

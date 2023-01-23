@@ -30,22 +30,25 @@ const contents = fs.readFileSync(fileName, { encoding: 'utf-8' });
 const data = JSON.parse(contents);
 const version = data.version;
 const commit = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).toString().trim();
+const gitBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf-8' }).toString().trim();
 
 // Format
-// {major}.{minor}.{patch}-{commitHash}.{subversion}
+// {major}.{minor}.{patch}-{releaseType}.{commitHash}.{subversion}
 
 const parsedVersion = version.split('.');
 let major = parseInt(parsedVersion[0]);
 let minor = parseInt(parsedVersion[1]);
 let patchStr = parsedVersion[2];
 let patch = parseInt(patchStr);
-const commitHash = patchStr.split('-')[1];
-let subversion = parseInt(parsedVersion[3]);
+const commitHash = parsedVersion[3];
+let subversion = parseInt(parsedVersion[4]);
+
+const releaseType = gitBranch === 'master' ? 'release' : 'dev';
 
 if (commitHash === commit) {
   subversion += 1;
 
-  data.version = `${major}.${minor}.${patch}-release.${commit}.${subversion}`;
+  data.version = `${major}.${minor}.${patch}-${releaseType}.${commit}.${subversion}`;
 } else {
   // If patch reaches 10, increment minor and reset patch
   if (patch === 9) {
@@ -61,7 +64,7 @@ if (commitHash === commit) {
     major += 1;
   }
 
-  data.version = `${major}.${minor}.${patch}-release.${commit}.0`;
+  data.version = `${major}.${minor}.${patch}-${releaseType}.${commit}.0`;
 }
 
 console.log(`Version: ${data.version}`);

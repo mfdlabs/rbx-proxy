@@ -135,6 +135,18 @@ export default class ConfigMiddleware {
     }
 
     if (request.path.toLowerCase() === pathEnvironment.singleton.configPath + '/update') {
+      const allowedIPv4Addresses = pathEnvironment.singleton.allowedIPv4Addresses;
+      const allowedIPv6Addresses = pathEnvironment.singleton.allowedIPv6Addresses;
+
+      if (
+        !net.isIPv4InCidrRangeList(request.ip, allowedIPv4Addresses) &&
+        !net.isIPv6InCidrRangeList(request.ip, allowedIPv6Addresses)
+      ) {
+        configMiddlewareLogger.warning(`Request from ${request.ip} is not allowed to access the config endpoint.`);
+
+        return response.sendMessage(['IP check failed.'], 403);
+      }
+
       // If we are POST, PATCH or PUT, then parse the body. Otherwise, just use the query.
       let body: any = {};
       if (request.method === 'POST' || request.method === 'PATCH' || request.method === 'PUT') {

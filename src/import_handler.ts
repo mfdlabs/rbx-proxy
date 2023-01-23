@@ -122,6 +122,22 @@ function isCoreModule(file: string): boolean {
 }
 
 moduleProto.require = function (id: string) {
+  // determine the caller of require() (normally the 3rd stack frame)
+  const stack = new Error().stack.split('at ');
+  const frame = stack[3].trim();
+
+  // It is in the format of "at XXX (FILE:LINE:COLUMN)", get the file path, allow accomodating for Windows paths which have a colon in them
+  const callerPath = frame.substring(frame.lastIndexOf('(') + 1, frame.lastIndexOf(':'));
+
+  // Ensure that the line and column numbers are removed
+  const caller = callerPath.substring(0, callerPath.lastIndexOf(':'));
+
+  // If the caller is a node module then just go directly to the original require.
+  const nodeModulePath = paths[1];
+  if (caller.includes(nodeModulePath)) {
+    return origRequire.call(this, id);
+  }
+
   let cachedPath = cache[id];
   const oldId = id;
 
@@ -162,52 +178,39 @@ moduleProto.require = function (id: string) {
     cache[id] = cachedPath;
   }
 
-  // determine the caller of require() (normally the 3rd stack frame)
-  const stack = new Error().stack.split('at ');
-  const frame = stack[3].trim();
-
-  // It is in the format of "at XXX (FILE:LINE:COLUMN)", get the file path, allow accomodating for Windows paths which have a colon in them
-  const callerPath = frame.substring(frame.lastIndexOf('(') + 1, frame.lastIndexOf(':'));
-
-  // Ensure that the line and column numbers are removed
-  const caller = callerPath.substring(0, callerPath.lastIndexOf(':'));
-
   // Only log if the caller is not from node_modules
-  const nodeModulePath = paths[1];
-  if (!caller.includes(nodeModulePath)) {
-    const name = convertFileToSourceName(caller);
+  const name = convertFileToSourceName(caller);
 
-    const module = convertFileToSourceName(oldId, isNodeModule(oldId), isCoreModule(oldId));
+  const module = convertFileToSourceName(oldId, isNodeModule(oldId), isCoreModule(oldId));
 
-    // Module is oldId and the dependant is caller
+  // Module is oldId and the dependant is caller
 
-    // If the guage existed, we want to append the caller to the list of dependants
-    if (dependants.has(module)) {
-      // Ignore if the caller is already in the list of dependants
-      if (!dependants.get(module).includes(name)) {
-        const dependantList = dependants.get(module);
-        const oldList = dependantList.join(',');
+  // If the guage existed, we want to append the caller to the list of dependants
+  if (dependants.has(module)) {
+    // Ignore if the caller is already in the list of dependants
+    if (!dependants.get(module).includes(name)) {
+      const dependantList = dependants.get(module);
+      const oldList = dependantList.join(',');
 
-        if (!dependantList.includes(name)) {
-          dependantList.push(name);
-          dependants.set(module, dependantList);
+      if (!dependantList.includes(name)) {
+        dependantList.push(name);
+        dependants.set(module, dependantList);
 
-          // Rebuild the list of dependants, remove all the old ones and add the new ones
-          moduleDependencies.remove(module, oldList);
+        // Rebuild the list of dependants, remove all the old ones and add the new ones
+        moduleDependencies.remove(module, oldList);
 
-          // Reregister the metric
+        // Reregister the metric
 
-          for (const [key, value] of dependants) {
-            // value of guage is the count of dependants
-            moduleDependencies.set({ module_name: key, parent_module_dependency_names: value.join(',') }, value.length);
-          }
+        for (const [key, value] of dependants) {
+          // value of guage is the count of dependants
+          moduleDependencies.set({ module_name: key, parent_module_dependency_names: value.join(',') }, value.length);
         }
       }
-    } else {
-      // If the guage doesn't exist, we want to create it and add the caller to the list of dependants
-      dependants.set(module, [name]);
-      moduleDependencies.set({ module_name: module, parent_module_dependency_names: name }, 1);
     }
+  } else {
+    // If the guage doesn't exist, we want to create it and add the caller to the list of dependants
+    dependants.set(module, [name]);
+    moduleDependencies.set({ module_name: module, parent_module_dependency_names: name }, 1);
   }
 
   return origRequire.call(this, cachedPath || id);

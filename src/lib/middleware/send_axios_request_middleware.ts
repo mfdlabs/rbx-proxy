@@ -377,7 +377,7 @@ export default class SendAxiosRequestMiddleware {
         axiosResponse.status,
         axiosResponse.statusText,
         hostname,
-        request.hostname,
+        request.hostname + request.path,
         timing,
       );
       request.fireEvent(
