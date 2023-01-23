@@ -48,7 +48,7 @@ jobs:
       - name: Setup the node js environment with version 16.x
         uses: actions/setup-node@v1
         with:
-          node-version: 16.x
+          node-version: 18.x
 
       - name: Run the build-full script to update packages and build the project.
         run: npm run build-full
@@ -65,7 +65,7 @@ jobs:
       - name: Setup the node js environment with version 16.x
         uses: actions/setup-node@v1
         with:
-          node-version: 16.x
+          node-version: 18.x
 
       - name: Run the build-full script to update packages and build the project.
         run: npm run build-full
@@ -82,7 +82,7 @@ jobs:
       - name: Setup the node js environment with version 16.x
         uses: actions/setup-node@v1
         with:
-          node-version: 16.x
+          node-version: 18.x
 
       - name: Run the build-full script to update packages and build the project.
         run: npm run build-full
