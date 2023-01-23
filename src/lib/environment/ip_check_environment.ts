@@ -70,4 +70,22 @@ export default class IpCheckEnvironment extends baseEnvironment {
   public get abortConnectionIfInvalidIP(): boolean {
     return this.getOrDefault('ABORT_CONNECTION_IF_INVALID_IP', false);
   }
+  
+  /**
+   * Used by the error middleware.
+   *
+   * A list of IPv4 addresses that are allowed to view source code.
+   */
+  public get allowedSourceViewersIPv4Cidrs(): string[] {
+    return this.getOrDefault('ALLOWED_SOURCE_VIEWERS_IPV4_CIDRS', [], 'array<string>');
+  }
+
+  /**
+   * Used by the error middleware.
+   *
+   * A list of IPv6 addresses that are allowed to view source code.
+   */
+  public get allowedSourceViewersIPv6Cidrs(): string[] {
+    return this.getOrDefault('ALLOWED_SOURCE_VIEWERS_IPV6_CIDRS', [], 'array<string>');
+  }
 }

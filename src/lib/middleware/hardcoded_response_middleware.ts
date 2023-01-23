@@ -26,6 +26,7 @@ import hardcodedResponseWriter from '@lib/writers/hardcoded_response_writer';
 import hardcodedResponseMiddlewareLogger from '@lib/loggers/middleware/hardcoded_response_middleware_logger';
 import * as hardcodedResponseMiddlewareMetrics from '@lib/metrics/middleware/hardcoded_response_middleware_metrics';
 
+import * as os from 'os';
 import * as math from 'mathjs';
 import * as yaml from 'js-yaml';
 import { NextFunction, Request, Response } from 'express';
@@ -463,6 +464,11 @@ export default class HardcodedResponseMiddleware {
         // Set some default vars like now_, nowIso_, uuid_.
         vars.set('now_', new Date().getTime());
         vars.set('nowIso_', new Date().toISOString());
+		vars.set('ip_', request.ip);
+		vars.set('machineId_', os.hostname());
+		vars.set('localPort_', request.localPort);
+		vars.set('realIp_', request.realIp);
+		vars.set('uuid_', this._uuid);
 
         if (updateExternalVars) {
           for (const [key, value] of vars) {
@@ -887,6 +893,31 @@ export default class HardcodedResponseMiddleware {
                   }
 
                   break;
+				case 'setValue':
+				  // Like: {{setValue type value}}
+				  
+				  const setValueType = args[0];
+                  const setValueValue = this._replaceVarExpression(
+                    vars,
+                    args.slice(1).join(' '),
+                    request,
+                    routeTemplate,
+                  );
+
+                  if (setValueType === 'number') {
+                    const parsedDefaultValue = this._parseNumber(math.evaluate(setValueValue));
+                    if (isNaN(parsedDefaultValue)) {
+                      throw new Error(`Cannot replace body template, invalid value for setValue: ${setValueValue}`);
+                    }
+
+                    value = parsedDefaultValue;
+                  } else if (setValueType === 'boolean') {
+                    value = setValueValue === 'true';
+                  } else {
+                    value = setValueValue;
+                  }
+
+                  break;
                 default:
                   throw new Error(`Cannot replace body template, method not found: ${methodName}`);
               }
@@ -960,7 +991,10 @@ export default class HardcodedResponseMiddleware {
       }
 
       if (vars.has(varName)) {
-        return vars.get(varName);
+        const value = vars.get(varName);
+		if (typeof value === 'function') return value();
+		
+		return value;
       } else {
         throw new Error(`Cannot replace body template, variable not found: ${varName}`);
       }

@@ -23,11 +23,13 @@
 import WebUtility from '@lib/utility/web_utility';
 import googleAnalytics from '@lib/utility/google_analytics';
 import sentryEnvironment from '@lib/environment/sentry_environment';
+import ipCheckEnvironment from '@lib/environment/ip_check_environment';
 import errorMiddlewareLogger from '@lib/loggers/middleware/error_middleware_logger';
 import * as errorMiddlewareMetrics from '@lib/metrics/middleware/error_middleware_metrics';
 
 import * as fs from 'fs';
 import * as os from 'os';
+import net from '@mfdlabs/net';
 import htmlEncode from 'escape-html';
 import stackTrace from 'stack-trace';
 import * as Sentry from '@sentry/node';
@@ -90,6 +92,30 @@ export default class ErrorMiddleware {
       )}</b>`;
     }
 
+	if (!this._isAllowedSourceViewer(request.ip)) {
+      const code = '<font color="#ffcc00"><i><b>The current IP check settings for this application prevent the source of the error from being viewed remotely (for security reasons).</b></i></font>\n\nIf you are a developer, you can change the following variables:\n- <b>ipCheckEnvironment.allowedSourceViewersIPv4Cidrs</b>\n- <b>ipCheckEnvironment.allowedSourceViewersIPv6Cidrs</b>';
+
+      response.sendMessage(
+        [message, undefined, true],
+        500,
+        undefined,
+        true,
+        undefined,
+        [
+          [
+            false,
+            code,
+            // Courier New monospace font, white border that is sized to the content, 5px padding
+            "font-family: 'Courier New', monospace; border: 1px solid white; padding: 10px; box-sizing: border-box; display: inline-block; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; overflow: auto;",
+            true,
+          ]
+        ],
+        false,
+      );
+
+      return;
+	}
+
     if (error instanceof Error && WebUtility.isBrowser(request.headers['user-agent'])) {
       try {
         const stack = stackTrace.parse(error);
@@ -132,7 +158,7 @@ export default class ErrorMiddleware {
               "font-family: 'Courier New', monospace; border: 1px solid white; padding: 10px; box-sizing: border-box; display: inline-block; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; overflow: auto;",
               true,
             ],
-            [true, errorStack, undefined],
+            [true, errorStack]
           ],
           false,
         );
@@ -144,5 +170,12 @@ export default class ErrorMiddleware {
     }
 
     response.sendMessage([message, undefined, true], 500, undefined, true, undefined, [[true, errorStack]], false);
+  }
+  
+  private static _isAllowedSourceViewer(ip: string): boolean {
+	return (
+	  net.isIPv4InCidrRangeList(ip, ipCheckEnvironment.singleton.allowedSourceViewersIPv4Cidrs) ||
+      net.isIPv6InCidrRangeList(ip, ipCheckEnvironment.singleton.allowedSourceViewersIPv6Cidrs)
+	)
   }
 }
