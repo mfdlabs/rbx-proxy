@@ -207,6 +207,23 @@ export default class HardcodedResponseMiddleware {
       },
       updateExternalVars,
     );
+	
+	const varRegex = /{{var\.([a-zA-Z0-9-_]+)}}/;
+    body = this._replaceBodyExpression(
+      body,
+      varRegex,
+      '',
+      request,
+      routeTemplate,
+      externalVars,
+      (match, _av, vars) => {
+        const key = match[1];
+        const value = vars.get(key);
+
+        return value || '';
+      },
+      updateExternalVars,
+    );
 
     const bodyRegex = /{{body\.([a-zA-Z0-9-_]+)}}/;
     body = this._replaceBodyExpression(
@@ -427,7 +444,7 @@ export default class HardcodedResponseMiddleware {
     request: Request,
     routeTemplate: RegExp,
     externalVars: Map<string, any>,
-    optionalReplacer?: (match: RegExpExecArray, actualValue: any) => any,
+    optionalReplacer?: (match: RegExpExecArray, actualValue: any, vars: Map<string, any>) => any,
     updateExternalVars: boolean = false,
   ) {
     // Update regex to include the chaining of methods (be able to match a variable number of methods, e.g. {{path.someNumber | parseInt | toFixed 2}}).
@@ -445,11 +462,41 @@ export default class HardcodedResponseMiddleware {
       if (Array.isArray(value)) {
         actualValue = value.join(',');
       }
+	  
+	  const vars = new Map<string, any>(); // Per chain variables. Variable set in a setVar or setVarIf. Can be used in the chain like ${varName}.
+
+	  // Set some default vars like now_, nowIso_, uuid_.
+	  vars.set('now_', new Date().getTime());
+	  vars.set('nowIso_', new Date().toISOString());
+	  vars.set('ip_', request.ip);
+	  vars.set('machineId_', os.hostname());
+	  vars.set('localPort_', request.localPort);
+	  vars.set('realIp_', request.realIp);
+	  vars.set('uuid_', this._uuid);
+	  
+      if (updateExternalVars) {
+        for (const [key, value] of vars) {
+          externalVars.set(key, value);
+        }
+      }
+
+      // Fill vars with external vars.
+      for (const [key, value] of externalVars) {
+        if (vars.has(key)) continue;
+
+        try {
+          vars.set(key, math.evaluate(value));
+        } catch (e) {
+          vars.set(key, value);
+        }
+      }
 
       if (optionalReplacer) {
-        actualValue = optionalReplacer(match, actualValue);
+        actualValue = optionalReplacer(match, actualValue, vars);
         value = actualValue.toString();
       }
+	  
+	  vars.set('value_', value);
 
       const chain = match.groups?.chain;
 
@@ -458,35 +505,6 @@ export default class HardcodedResponseMiddleware {
           .split('|')
           .map((m) => m.trim())
           .filter((m) => !!m);
-
-        const vars = new Map<string, any>(); // Per chain variables. Variable set in a setVar or setVarIf. Can be used in the chain like ${varName}.
-
-        // Set some default vars like now_, nowIso_, uuid_.
-        vars.set('now_', new Date().getTime());
-        vars.set('nowIso_', new Date().toISOString());
-		vars.set('ip_', request.ip);
-		vars.set('machineId_', os.hostname());
-		vars.set('localPort_', request.localPort);
-		vars.set('realIp_', request.realIp);
-		vars.set('uuid_', this._uuid);
-        vars.set('value_', value);
-
-        if (updateExternalVars) {
-          for (const [key, value] of vars) {
-            externalVars.set(key, value);
-          }
-        }
-
-        // Fill vars with external vars.
-        for (const [key, value] of externalVars) {
-          if (vars.has(key)) continue;
-
-          try {
-            vars.set(key, math.evaluate(value));
-          } catch (e) {
-            vars.set(key, value);
-          }
-        }
 
         for (const method of methods) {
           let [methodName, ...args] = method.split(' ');
@@ -808,35 +826,60 @@ export default class HardcodedResponseMiddleware {
                   const varNameBatchConditional = args[0];
                   const varTypeBatchConditional = args[1];
                   const expressions = args.slice(2).join(' ').split(';');
+				  let hasDefault = false;
+				  let defaultSetTo;
+				  
+				  hardcodedResponseMiddlewareLogger.warning(
+					  '%d %s',
+					  expressions.length,
+					  JSON.stringify(expressions)
+					);
 
                   for (const expression of expressions) {
-                    const [left, operator, right, , setTo] = expression
+                    const [left, operator, right, , ...setToRaw] = expression
                       .trim()
                       .split(' ')
                       .map((s) => s.trim());
+					  
+					const setTo = setToRaw.join(' ');
 
                     const actualLeft = this._getVarValue(vars, left, request, routeTemplate);
+					const actualRight = this._getVarValue(vars, right, request, routeTemplate);
+					
+					hardcodedResponseMiddlewareLogger.warning(
+					  '%s, %s, %s, %s, %s, %s',
+					  left,
+					  operator,
+					  right,
+					  setTo,
+					  actualLeft,
+					  actualRight
+					);
 
                     let result = false;
                     switch (operator) {
                       case 'eq':
-                        result = actualLeft === right;
+                        result = actualLeft === actualRight;
                         break;
                       case 'ne':
-                        result = actualLeft !== right;
+                        result = actualLeft !== actualRight;
                         break;
                       case 'gt':
-                        result = actualLeft > right;
+                        result = actualLeft > actualRight;
                         break;
                       case 'ge':
-                        result = actualLeft >= right;
+                        result = actualLeft >= actualRight;
                         break;
                       case 'lt':
-                        result = actualLeft < right;
+                        result = actualLeft < actualRight;
                         break;
                       case 'le':
-                        result = actualLeft <= right;
+                        result = actualLeft <= actualRight;
                         break;
+					  case 'def':
+						hasDefault = true;
+						defaultSetTo = this._replaceVarExpression(vars, setTo, request, routeTemplate);
+						break;
                       default:
                         throw new Error(
                           `Cannot replace body template, invalid operator for setVarBatchConditional: ${operator}`,
@@ -844,6 +887,10 @@ export default class HardcodedResponseMiddleware {
                     }
 
                     if (result) {
+				      hardcodedResponseMiddlewareLogger.warning(
+					    'Is true condition'
+					  );
+					
                       const actualSetTo = this._replaceVarExpression(vars, setTo, request, routeTemplate);
 
                       if (varTypeBatchConditional === 'number') {
@@ -869,6 +916,28 @@ export default class HardcodedResponseMiddleware {
                       break;
                     }
                   }
+				  
+				  if (hasDefault) {
+				    if (varTypeBatchConditional === 'number') {
+                      const parsedVarValueBatchConditional = this._parseNumber(math.evaluate(defaultSetTo));
+                      if (isNaN(parsedVarValueBatchConditional)) {
+                        throw new Error(
+                          `Cannot replace body template, invalid default for setVarBatchConditional: ${defaultSetTo}`,
+                        );
+                      }
+
+                      vars.set(varNameBatchConditional, parsedVarValueBatchConditional);
+                    } else if (varTypeBatchConditional === 'boolean') {
+                      vars.set(varNameBatchConditional, defaultSetTo === 'true');
+					} else if (varTypeBatchConditional === 'empty') {
+					  vars.set(varNameBatchConditional, '');
+                    } else {
+                      vars.set(varNameBatchConditional, defaultSetTo);
+                    }
+
+                    if (updateExternalVars)
+                      externalVars.set(varNameBatchConditional, vars.get(varNameBatchConditional));
+				  }
 
                   break;
                 case 'default':
