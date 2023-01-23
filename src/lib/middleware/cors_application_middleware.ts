@@ -20,8 +20,6 @@
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/request';
-
 import corsWriter from '@lib/writers/cors_writer';
 import corsEnvironment from '@lib/environment/cors_environment';
 import corsApplicationMiddlewareLogger from '@lib/loggers/middleware/cors_application_middleware_logger';

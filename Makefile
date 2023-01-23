@@ -24,6 +24,10 @@ ifndef IMAGE_NAME
 	@echo IMAGE_NAME is not defined
 else
 	@echo Build the image
+	@echo IMAGE_NAME=$(IMAGE_NAME)
+
+	node ./updateVersion.js
+
 	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) -f Dockerfile .
 ifdef CI
 
@@ -41,5 +45,3 @@ ifdef CI
 	docker rmi $(IMAGE_NAME):latest
 endif
 endif
-
-.PHONY: build

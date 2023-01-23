@@ -20,10 +20,6 @@
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/request';
-import '@lib/extensions/express/response';
-
-import loadBalancerResponder from '@lib/responders/load_balancer_responder';
 import denyWebsocketsMiddlewareLogger from '@lib/loggers/middleware/deny_websockets_middleware_logger';
 import * as denyWebsocketsMiddlewareMetrics from '@lib/metrics/middleware/deny_websockets_middleware_metrics';
 
@@ -53,12 +49,7 @@ export default class DenyWebsocketsMiddleware {
       caller: request.ip,
     });
 
-    loadBalancerResponder.sendMessage(
-      'Websockets are not supported on this server.',
-      request,
-      response,
-      403,
-    );
+    response.sendMessage(['Websockets are not supported on this server.'], 403);
   }
 
   private static _isWebsocket(request: Request): boolean {

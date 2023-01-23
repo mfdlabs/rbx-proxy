@@ -20,12 +20,13 @@
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/response';
-
 import webUtility from '@lib/utility/web_utility';
+import { readPackageJson } from '@lib/utility/npm_utility';
 
 import htmlEncode from 'escape-html';
 import { Request, Response } from 'express';
+
+const { name, version } = readPackageJson();
 
 /**
  * This class is a responder for LB level messages.
@@ -34,24 +35,27 @@ export default class LoadBalancerResponder {
   /**
    * This method will send a message to the client.
    *
-   * @param {string} message The message to send.
+   * @param {[string, string?, boolean?]} message The message to send.
    * @param {Request} request The request object.
    * @param {Response} response The response object.
    * @param {number=} statusCode The status code to send.
-   * @param {string?} titleOrUserFacingMessage The title of the message or a user-facing message for API based responses.
+   * @param {[string, string?, boolean?]?} titleOrUserFacingMessage The title of the message or a user-facing message for API based responses.
    * @param {boolean=} noCache Whether to send no-cache headers.
    * @param {Record<string, string>?} extraHeaders Extra headers to send.
+   * @param {[boolean, string, string?][]?} extraDetails Extra details to send.
+   * @param {boolean=} inContainer Whether to send the message in a container.
    * @returns {void} Nothing.
    */
   public static sendMessage(
-    message: string,
+    message: [string, string?, boolean?],
     request: Request,
     response: Response,
     statusCode: number = 200,
-    titleOrUserFacingMessage?: string,
+    titleOrUserFacingMessage?: [string, string?, boolean?],
     noCache: boolean = true,
     extraHeaders?: Record<string, string>,
-    extraDetails?: [boolean, string][],
+    extraDetails?: [boolean, string, string?, boolean?][],
+    inContainer: boolean = true,
   ): void {
     if (noCache) response.noCache();
     if (extraHeaders) for (const key in extraHeaders) response.header(key, extraHeaders[key]);
@@ -59,49 +63,107 @@ export default class LoadBalancerResponder {
     // If the request is from a browser, send a HTML page.
     if (webUtility.isBrowser(request.headers['user-agent'])) {
       // If title is not specified, use '${statusCode} ${statusMessage}'.
-      if (!titleOrUserFacingMessage) {
+      if (!titleOrUserFacingMessage?.[0]) {
         const statusMessage = this._getStatusMessage(statusCode) ?? '';
-        titleOrUserFacingMessage = `${statusCode} ${statusMessage}`;
+        titleOrUserFacingMessage = [`${statusCode} ${statusMessage}`];
       }
 
+      const [, , isRawMessage] = message;
+
       // Escape the message and title.
-      message = htmlEncode(message)
+      message[0] = (isRawMessage ? message[0] : htmlEncode(message[0]))
         .replace(/\n/g, '<br>')
         .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
         .replace(/ /g, '&nbsp;');
-      titleOrUserFacingMessage = htmlEncode(titleOrUserFacingMessage);
 
-      let html = `<html><head><title>${titleOrUserFacingMessage}</title></head><body><h1>${titleOrUserFacingMessage}</h1><p>${message}</p>`;
+      // html tags that have spaces will have their spaces replaced with &nbsp; we need to replace them back with spaces, but only for parts of the message that have html tags.
+      // regex: /(<[^>]+>)/g but also matches &nbsp; so we need to replace it back with a space.
+      if (isRawMessage) {
+        message[0] = message[0].replace(/(<[^>]+>)/g, (match) => {
+          if (match.includes('&nbsp;')) return match.replace(/&nbsp;/g, ' ');
+
+          return match;
+        });
+      }
+
+      const [, , isRawTitle] = titleOrUserFacingMessage;
+
+      titleOrUserFacingMessage[0] = isRawTitle ? titleOrUserFacingMessage[0] : htmlEncode(titleOrUserFacingMessage[0]);
+
+      const [, messageStyle] = message;
+      const [, titleStyle] = titleOrUserFacingMessage;
+
+      let html = `
+<html>
+  <head>
+    <title>${titleOrUserFacingMessage[0]}</title>
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://content.cdn.arc-cloud.net/arc/css/rbx.css">
+  </head>
+  <body>
+    ${inContainer ? `<div class="container"><h1 class="title">${name} v${version}</h1>` : ''}
+      <h2${this._isErrorStatusCode(statusCode) ? ' class="error"' : ''}${titleStyle ? ` style="${titleStyle}"` : ''}>${
+        titleOrUserFacingMessage[0]
+      }</h2>
+      <p${messageStyle ? ` style="${messageStyle}"` : ''}>${message[0]}</p>
+`;
 
       if (extraDetails) {
-        for (const [isBold, detail] of extraDetails) {
-          const encodedDetail = htmlEncode(detail)
+        for (const [isBold, detail, customStyle, isRaw] of extraDetails) {
+          let encodedDetail = (isRaw ? detail : htmlEncode(detail))
             .replace(/\n/g, '<br>')
             .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
             .replace(/ /g, '&nbsp;');
 
-          html += `<p>${isBold ? '<b>' : ''}${encodedDetail}${isBold ? '</b>' : ''}</p>`;
+          // html tags that have spaces will have their spaces replaced with &nbsp; we need to replace them back with spaces, but only for parts of the message that have html tags.
+          // regex: /(<[^>]+>)/g but also matches &nbsp; so we need to replace it back with a space.
+          if (isRaw) {
+            encodedDetail = encodedDetail.replace(/(<[^>]+>)/g, (match) => {
+              if (match.includes('&nbsp;')) return match.replace(/&nbsp;/g, ' ');
+              return match;
+            });
+          }
+
+          html += `<p${customStyle ? ` style="${customStyle}"` : ''}>${isBold ? '<b>' : ''}${encodedDetail}${
+            isBold ? '</b>' : ''
+          }</p>`;
         }
       }
 
-      html += '</body></html>';
+      html += `${inContainer ? '</div>' : ''}</body></html>`;
+
+      // add pre-fetching headers
+      response.header('Link', [
+        '<https://content.cdn.arc-cloud.net/arc/css/rbx.css>; rel=preload; as=style',
+        '<https://fonts.googleapis.com/css2?family=Roboto:wght@300;700&display=swap>; rel=preload; as=style',
+      ]);
 
       response.contentType('text/html');
       response.status(statusCode).send(html);
       return;
     }
 
+    // Update message to remove html tags.
+    message[0] = message[0].replace(/<[^>]*>/g, '');
+
     const responseBody = {
       code: statusCode,
-      message: message,
+      message: message[0],
     };
 
-    if (titleOrUserFacingMessage) responseBody['userFacingMessage'] = titleOrUserFacingMessage;
-    if (extraDetails) responseBody['extraDetails'] = extraDetails.map(([, detail]) => detail);
+    if (titleOrUserFacingMessage?.[0])
+      responseBody['userFacingMessage'] = titleOrUserFacingMessage[0].replace(/<[^>]*>/g, '');
+    if (extraDetails) responseBody['extraDetails'] = extraDetails.map(([, detail]) => detail.replace(/<[^>]*>/g, ''));
 
     // Send the message as JSON.
     response.contentType('application/json');
     response.status(statusCode).send(responseBody);
+  }
+
+  private static _isErrorStatusCode(statusCode: number): boolean {
+    return statusCode >= 400;
   }
 
   private static _getStatusMessage(statusCode: number): string {

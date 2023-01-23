@@ -22,16 +22,21 @@
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/request';
-
+import dns from '@lib/dns';
 import ga4Environment from '@lib/environment/ga4_environment';
 import wanAddressApplicationMiddlewareLogger from '@lib/loggers/middleware/wan_address_application_middleware_logger';
 import * as wanAddressApplicationMiddlewareMetrics from '@lib/metrics/middleware/wan_address_application_middleware_metrics';
 
-import net from '@mfdlabs/net';
 import { NextFunction, Request, Response } from 'express';
 
 let wanIp: string;
+
+const dnsClient = new dns([
+  'resolver1.opendns.com',
+  'resolver2.opendns.com',
+  'resolver3.opendns.com',
+  'resolver4.opendns.com',
+]);
 
 export default class WanAddressApplicationMiddleware {
   /**
@@ -43,7 +48,7 @@ export default class WanAddressApplicationMiddleware {
    */
   public static async invoke(request: Request, _response: Response, next: NextFunction): Promise<void> {
     if (wanIp === undefined) {
-      wanIp = await net.getPublicIP();
+      wanIp = await this._getWanIp();
 
       wanAddressApplicationMiddlewareLogger.information("Public IP Initialized as '%s'", wanIp);
 
@@ -63,5 +68,13 @@ export default class WanAddressApplicationMiddleware {
     }
 
     next();
+  }
+
+  private static async _getWanIp(): Promise<string> {
+    if (wanIp !== undefined) return wanIp;
+
+    const addresses = await dnsClient.resolve('myip.opendns.com');
+
+    return addresses.pop()?.value;
   }
 }

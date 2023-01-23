@@ -29,8 +29,9 @@ import * as prometheus from 'prom-client';
 const CH_PERIOD = 0x2e as const;
 const CH_AT = 0x40 as const;
 
-const baseUrl = path.dirname(require.main.filename);
+export const baseUrl = path.dirname(require.main.filename);
 const paths = require.main.paths;
+export const nodeModulesPath = paths[1];
 
 const cache = {};
 
@@ -44,6 +45,16 @@ const moduleDependencies = new prometheus.Gauge({
 });
 
 const dependants = new Map<string, string[]>();
+
+// If we were called by the entrypoint then we want to add the entrypoint as a dependency.
+
+const thisName = `@entrypoint/${path.basename(__filename).replace(/\.ts$/, '').replace(/\.js$/, '')}`;
+
+if (!dependants.has(thisName)) {
+  dependants.set(thisName, ['@entrypoint']);
+
+  moduleDependencies.set({ module_name: thisName, parent_module_dependency_names: '@entrypoint' }, 1);
+}
 
 function convertFileToSourceName(file: string, isNodeModule: boolean = false, isCoreModule: boolean = false): string {
   // If it is under src/xxx.ts then we want to convert it to xxx.
@@ -77,6 +88,9 @@ function convertFileToSourceName(file: string, isNodeModule: boolean = false, is
   file = file.replace(/\/index$/, '');
   file = file.replace(/^index$/, '@entrypoint');
 
+  // Remove ../
+  file = file.replace(/\.\.\//g, '');
+
   // if it is just the file on its own (no slashes) then make it @entrypoint/xxx
   if (!file.includes('/') && file !== '@entrypoint' && !isNodeModule && !isCoreModule) {
     file = '@entrypoint/' + file;
@@ -97,7 +111,7 @@ function convertFileToSourceName(file: string, isNodeModule: boolean = false, is
 }
 
 function isNodeModule(file: string): boolean {
-  const nodeModulePath = path.join(paths[1], file);
+  const nodeModulePath = path.join(nodeModulesPath, file);
 
   return fs.existsSync(nodeModulePath);
 }
@@ -108,6 +122,22 @@ function isCoreModule(file: string): boolean {
 }
 
 moduleProto.require = function (id: string) {
+  // determine the caller of require() (normally the 3rd stack frame)
+  const stack = new Error().stack.split('at ');
+  const frame = stack[3].trim();
+
+  // It is in the format of "at XXX (FILE:LINE:COLUMN)", get the file path, allow accomodating for Windows paths which have a colon in them
+  const callerPath = frame.substring(frame.lastIndexOf('(') + 1, frame.lastIndexOf(':'));
+
+  // Ensure that the line and column numbers are removed
+  const caller = callerPath.substring(0, callerPath.lastIndexOf(':'));
+
+  // If the caller is a node module then just go directly to the original require.
+  const nodeModulePath = paths[1];
+  if (caller.includes(nodeModulePath)) {
+    return origRequire.call(this, id);
+  }
+
   let cachedPath = cache[id];
   const oldId = id;
 
@@ -119,9 +149,6 @@ moduleProto.require = function (id: string) {
     if (!path.isAbsolute(id) && id.charCodeAt(0) !== CH_PERIOD) {
       // If it starts with @ but isn't in node_modules, it's probably a file path.
       if (id.charCodeAt(0) === CH_AT) {
-        // Normally the second string within paths is the node_modules path.
-        const nodeModulesPath = paths[1];
-
         if (nodeModulesPath.includes('node_modules')) {
           // Join the nodeModules path with the request.
           const nodeModulePath = path.join(nodeModulesPath, id);
@@ -151,32 +178,21 @@ moduleProto.require = function (id: string) {
     cache[id] = cachedPath;
   }
 
-  // determine the caller of require() (normally the 3rd stack frame)
-  const stack = new Error().stack.split('at ');
-  const frame = stack[3].trim();
-
-  // It is in the format of "at XXX (FILE:LINE:COLUMN)", get the file path, allow accomodating for Windows paths which have a colon in them
-  const callerPath = frame.substring(frame.lastIndexOf('(') + 1, frame.lastIndexOf(':'));
-
-  // Ensure that the line and column numbers are removed
-  const caller = callerPath.substring(0, callerPath.lastIndexOf(':'));
-
   // Only log if the caller is not from node_modules
-  const nodeModulePath = paths[1];
-  if (!caller.includes(nodeModulePath)) {
-    const name = convertFileToSourceName(caller);
+  const name = convertFileToSourceName(caller);
 
-    const module = convertFileToSourceName(oldId, isNodeModule(oldId), isCoreModule(oldId));
+  const module = convertFileToSourceName(oldId, isNodeModule(oldId), isCoreModule(oldId));
 
-    // Module is oldId and the dependant is caller
+  // Module is oldId and the dependant is caller
 
-    // If the guage existed, we want to append the caller to the list of dependants
-    if (dependants.has(module)) {
-      // Ignore if the caller is already in the list of dependants
-      if (!dependants.get(module).includes(name)) {
-        const dependantList = dependants.get(module);
-        const oldList = dependantList.join(',');
+  // If the guage existed, we want to append the caller to the list of dependants
+  if (dependants.has(module)) {
+    // Ignore if the caller is already in the list of dependants
+    if (!dependants.get(module).includes(name)) {
+      const dependantList = dependants.get(module);
+      const oldList = dependantList.join(',');
 
+      if (!dependantList.includes(name)) {
         dependantList.push(name);
         dependants.set(module, dependantList);
 
@@ -190,11 +206,11 @@ moduleProto.require = function (id: string) {
           moduleDependencies.set({ module_name: key, parent_module_dependency_names: value.join(',') }, value.length);
         }
       }
-    } else {
-      // If the guage doesn't exist, we want to create it and add the caller to the list of dependants
-      dependants.set(module, [name]);
-      moduleDependencies.set({ module_name: module, parent_module_dependency_names: name }, 1);
     }
+  } else {
+    // If the guage doesn't exist, we want to create it and add the caller to the list of dependants
+    dependants.set(module, [name]);
+    moduleDependencies.set({ module_name: module, parent_module_dependency_names: name }, 1);
   }
 
   return origRequire.call(this, cachedPath || id);

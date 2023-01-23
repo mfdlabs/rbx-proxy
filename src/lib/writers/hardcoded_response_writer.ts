@@ -47,7 +47,7 @@ interface HardcodedResponseRule {
    *
    * @remarks If this is not specified, it will assume every host is allowed.
    */
-  hostname: string;
+  hostname: RegExp | string;
 
   /**
    * A string for the methods that are matching this result.
@@ -55,7 +55,7 @@ interface HardcodedResponseRule {
    * @remarks If this is not specified, it will assume every method is allowed.
    * @remarks OPTIONS will always be added to the list of methods.
    */
-  method: string;
+  method: RegExp | string;
 
   /**
    * A string for the schemes that are matching this result.
@@ -63,6 +63,12 @@ interface HardcodedResponseRule {
    * @remarks If this is not specified, it will assume every scheme is allowed.
    */
   scheme: string;
+
+  /**
+   * The weight of this rule.
+   * @remarks The higher the weight, the higher the priority.
+   */
+  weight: number;
 
   /////////////////////////////////////////////////////////////////////////////
   // Response section.
@@ -85,21 +91,31 @@ interface HardcodedResponseRule {
   headers: Record<string, string>;
 
   /**
+   * Variables to be passed into the body.
+   *
+   * Defaults to `{}`.
+   */
+  templateVariables: Record<string, unknown>;
+
+  /**
    * The body to return.
    *
    * Defaults to `''`.
    */
   body: unknown;
+
+  /**
+   * Format the body. (prettify)
+   *
+   * Defaults to `false`.
+   */
+  formatBody: boolean;
 }
 
 export default abstract class HardcodedResponseWriter {
   private static _initialized = false;
 
   private static _rules: HardcodedResponseRule[] = [];
-
-  private static _removeRule(rule: HardcodedResponseRule) {
-    this._rules = this._rules.filter((r) => r !== rule);
-  }
 
   private static _removeDuplicateRules() {
     const rules: HardcodedResponseRule[] = [];
@@ -108,8 +124,8 @@ export default abstract class HardcodedResponseWriter {
       const index = rules.findIndex(
         (r) =>
           r.routeTemplate.toString() === rule.routeTemplate.toString() &&
-          r.hostname === rule.hostname &&
-          r.method === rule.method &&
+          r.hostname.toString() === rule.hostname.toString() &&
+          r.method.toString() === rule.method.toString() &&
           r.scheme === rule.scheme,
       );
 
@@ -148,42 +164,63 @@ export default abstract class HardcodedResponseWriter {
     }
 
     for (const rule of this._rules) {
-      if (!rule.routeTemplate) {
-        rule.routeTemplate = /(.+)?/;
-      }
+      const rawRouteTemplate = rule.routeTemplate || '*';
+      const rawHostname = rule.hostname || '*';
+      const rawMethod = rule.method || '*';
+
+      if (!rule.routeTemplate) rule.routeTemplate = /(.+)?/;
+      if (rule.routeTemplate === '*') rule.routeTemplate = /(.+)?/;
       if (typeof rule.routeTemplate === 'string') {
         rule.routeTemplate = new RegExp(rule.routeTemplate);
       }
 
-      if (!rule.hostname) rule.hostname = '*';
-      if (typeof rule.hostname !== 'string') {
-        this._removeRule(rule);
-        continue;
+      if (!rule.hostname) rule.hostname = /(.+)?/;
+      if (rule.hostname === '*') rule.hostname = /(.+)?/;
+      if (typeof rule.hostname === 'string') {
+        rule.hostname = new RegExp(rule.hostname);
       }
 
-      if (!rule.method) rule.method = '*';
-      if (typeof rule.method !== 'string') {
-        this._removeRule(rule);
-        continue;
+      if (!rule.method) rule.method = /(.+)?/;
+      if (rule.method === '*') rule.method = /(.+)?/;
+      if (typeof rule.method === 'string') {
+        rule.method = new RegExp(rule.method);
       }
 
       if (!rule.scheme) rule.scheme = '*';
       if (typeof rule.scheme !== 'string') {
-        this._removeRule(rule);
-        continue;
+        rule.scheme = '*';
       }
 
       if (typeof rule.statusCode !== 'number') rule.statusCode = 200;
       if (typeof rule.headers !== 'object') rule.headers = {};
-
-      rule.method = rule.method.toLowerCase();
-      rule.scheme = rule.scheme.toLowerCase();
+      if (typeof rule.templateVariables !== 'object') rule.templateVariables = {};
+      if (typeof rule.formatBody !== 'boolean') rule.formatBody = false;
+      if (typeof rule.weight !== 'number') rule.weight = 0;
 
       // Remove the everything after : in the scheme.
       rule.scheme = rule.scheme.split(':')[0];
+
+      rule['_meta'] = {};
+      rule['_meta']['_raw'] = {
+        _routeTemplate: rawRouteTemplate,
+        _hostname: rawHostname,
+        _method: rawMethod,
+      };
+      rule['_meta']['_source'] = hardcodedResponsesFile;
+      rule['_meta']['_id'] = this._uuidv4();
+      rule['_meta']['_created'] = new Date().toISOString();
+      rule['_meta']['_reloadOnRequest'] = hardcodeEnvironment.singleton.hardcodedResponseRulesReloadOnRequest;
     }
 
     this._removeDuplicateRules();
+  }
+
+  private static _uuidv4() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      const r = (Math.random() * 16) | 0,
+        v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
   }
 
   /**
@@ -194,29 +231,51 @@ export default abstract class HardcodedResponseWriter {
   public static getRule(request: Request): HardcodedResponseRule | undefined {
     this._initialize();
 
-    return this._rules.find((r) => {
-      // routeTemplate is a regexp.
-      const routeTemplate = r.routeTemplate as RegExp;
+    // Get the rules that match the request.
+    // The rules are sorted by weight and by how specific they are. The more specific rules are first.
+    // e.g. /api/v1/users/1 is more specific than /api/v1/users/*
+    const rules = this._rules
+      .filter((rule) => {
+        const routeTemplate = rule.routeTemplate as RegExp;
+        const hostname = rule.hostname as RegExp;
+        const method = rule.method as RegExp;
 
-      if (!routeTemplate.test(request.originalUrl)) return false;
+        return (
+          routeTemplate.test(request.url) &&
+          hostname.test(request.hostname) &&
+          method.test(request.method) &&
+          (rule.scheme === '*' || rule.scheme === request.protocol)
+        );
+      })
+      .sort((a, b) => {
+        const routeTemplateA = a.routeTemplate as RegExp;
+        const routeTemplateB = b.routeTemplate as RegExp;
 
-      // hostname is a string.
-      const hostname = r.hostname as string;
+        const hostnameA = a.hostname as RegExp;
+        const hostnameB = b.hostname as RegExp;
 
-      if (hostname !== '*' && hostname !== request.hostname) return false;
+        const methodA = a.method as RegExp;
+        const methodB = b.method as RegExp;
 
-      // method is a string.
-      const method = r.method as string;
+        const aSpecificity =
+          (routeTemplateA.toString().match(/\//g) ?? []).length +
+          (hostnameA.toString().match(/\//g) ?? []).length +
+          (methodA.toString().match(/\//g) ?? []).length;
+        const bSpecificity =
+          (routeTemplateB.toString().match(/\//g) ?? []).length +
+          (hostnameB.toString().match(/\//g) ?? []).length +
+          (methodB.toString().match(/\//g) ?? []).length;
 
-      if (method !== '*' && method !== request.method.toLowerCase()) return false;
+        if (aSpecificity === bSpecificity) {
+          return b.weight - a.weight;
+        }
 
-      // scheme is a string.
-      const scheme = r.scheme as string;
+        return bSpecificity - aSpecificity;
+      });
 
-      if (scheme !== '*' && scheme !== request.protocol.replace(/:$/, '')) return false;
+    if (rules.length === 0) return undefined;
 
-      return true;
-    });
+    return rules[0];
   }
 
   /**

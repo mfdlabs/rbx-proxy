@@ -20,16 +20,20 @@
     Written by: Nikita Petko
 */
 
+import { baseUrl, nodeModulesPath } from '../../import_handler';
 import multicastReplicator from '@lib/replicator';
 import dotenvLoader from '@lib/environment/dotenv_loader';
 import * as baseEnvironmentMetrics from '@lib/metrics/base_environment_metrics';
 
 import * as os from 'os';
+import * as fs from 'fs';
+import * as path from 'path';
 import environment, {
   DefaultValueGetter,
   EnvironmentVariableType,
   EnvironmentVariableArrayType,
 } from '@mfdlabs/environment';
+import stackTrace from 'stack-trace';
 import logger, { LogLevel } from '@mfdlabs/logging';
 
 const baseEnvironmentLogger = new logger('base-environment', LogLevel.Debug);
@@ -41,6 +45,7 @@ export default abstract class BaseEnvironment extends environment {
   private static _trackedValues: Record<string, [BaseEnvironment, unknown, string, string]> = {};
   private static _registeredEnvironments: Record<string, BaseEnvironment> = {};
   private static _replicator: multicastReplicator = new multicastReplicator(5000, '224.0.0.3');
+  private static _dependants: Map<string, string[]> = new Map();
 
   private static _tryReplicate(environmentName: string, key: string, value: unknown): void {
     baseEnvironmentLogger.debug(`Try replicate change for %s.%s to multicast group`, environmentName, key);
@@ -76,6 +81,73 @@ export default abstract class BaseEnvironment extends environment {
     }
 
     return getters.length;
+  }
+
+  private static _convertFileToSourceName(
+    file: string,
+    isNodeModule: boolean = false,
+    isCoreModule: boolean = false,
+  ): string {
+    // If it is under src/xxx.ts then we want to convert it to xxx.
+    // If it is under src/lib/xxx.ts then we want to convert it to @lib/xxx. the same for subdirectories of lib like @lib/xxx/yyy.
+
+    // convert \\ to / for windows
+    file = file.replace(/\\/g, '/');
+
+    const newBaseUrl = path.resolve(baseUrl, '..').replace(/\\/g, '/');
+
+    // Remove the base url from the file. baseUrl is __dirname.
+    file = file.replace(baseUrl.replace(/\\/g, '/'), '');
+    file = file.replace(newBaseUrl, '');
+
+    // Remove the .ts from the file.
+    file = file.replace(/\.ts$/, '');
+    file = file.replace(/\.js$/, '');
+
+    // Remove the src/ from the file.
+    file = file.replace(/^\/src/, '');
+
+    // If it is under lib/ then we want to add @ to the start.
+    file = file.replace(/^\/lib/, '@lib');
+
+    // if relative path like ./xxx or ./lib/xxx make it xxx
+    file = file.replace(/^\.\//, '');
+
+    // Make sure it does not start with a /.
+    file = file.replace(/^\//, '');
+
+    // If the file ends in /index then remove it. If the file is only index then make it @entrypoint.
+    file = file.replace(/\/index$/, '');
+    file = file.replace(/^index$/, '@entrypoint');
+
+    // if it is just the file on its own (no slashes) then make it @entrypoint/xxx
+    if (!file.includes('/') && file !== '@entrypoint' && !isNodeModule && !isCoreModule) {
+      file = '@entrypoint/' + file;
+    }
+
+    if (isNodeModule) {
+      // Remove @ from the start.
+      file = file.replace(/^@/, '');
+
+      file = '@node_modules/' + file;
+    }
+
+    if (isCoreModule) {
+      file = '@node/' + file;
+    }
+
+    return file;
+  }
+
+  private static _isNodeModule(file: string): boolean {
+    const nodeModulePath = path.join(nodeModulesPath, file);
+
+    return fs.existsSync(nodeModulePath);
+  }
+
+  private static _isCoreModule(file: string): boolean {
+    // Is this part of nodejs? Like fs, path, etc.
+    return require.resolve.paths(file) === null;
   }
 
   private static _getTypeBasedOnValue(value: unknown): string {
@@ -144,6 +216,8 @@ export default abstract class BaseEnvironment extends environment {
       overridden: super.isVariableOverridden(key).toString(),
     });
 
+    const caller = new Error().stack?.split('at ')?.[2]?.split(' ')[1] ?? 'unknown';
+
     try {
       const value = super.getOrDefault(key, defaultValue, optionalType);
 
@@ -151,7 +225,6 @@ export default abstract class BaseEnvironment extends environment {
       if (!BaseEnvironment._deepEquals(BaseEnvironment.getTrackedVariableValue<T>(key), value)) {
         // Caller is always a getter. We want to know which getter called this.
         // Stack formats it as "at <class>.get <getterName> [as <alias>] (<file>:<line>:<column>)"
-        const caller = new Error().stack?.split('at ')?.[2]?.split(' ')[1] ?? 'unknown';
 
         BaseEnvironment._trackedValues[key] = [
           this,
@@ -163,13 +236,48 @@ export default abstract class BaseEnvironment extends environment {
 
       return value;
     } catch (e) {
-      // Still "track" the variable, but with an error.
-
-      const caller = new Error().stack?.split('at ')?.[2]?.split(' ')[1] ?? 'unknown';
-
       BaseEnvironment._trackedValues[key] = [this, e.message, 'error', caller];
 
       throw e;
+    } finally {
+      // Determine who the true caller is. (getOrDefault -> getter -> caller)
+      const fileName = stackTrace.parse(new Error())[2].getFileName();
+      const actualCaller = BaseEnvironment._convertFileToSourceName(
+        fileName,
+        BaseEnvironment._isNodeModule(fileName),
+        BaseEnvironment._isCoreModule(fileName),
+      );
+      let envName = this.constructor.name;
+      envName = envName.charAt(0).toLowerCase() + envName.slice(1);
+      const name = `${envName}.${caller}`;
+
+      if (BaseEnvironment._dependants.has(name)) {
+        const dependantList = BaseEnvironment._dependants.get(name);
+        const oldList = dependantList.join(',');
+
+        if (!dependantList.includes(actualCaller)) {
+          dependantList.push(actualCaller);
+          BaseEnvironment._dependants.set(name, dependantList);
+
+          baseEnvironmentMetrics.configurationDependencies.remove(name, oldList);
+
+          for (const [key, value] of BaseEnvironment._dependants) {
+            baseEnvironmentMetrics.configurationDependencies.set(
+              { variable_name: key, parent_variable_dependency_names: value.join(',') },
+              value.length,
+            );
+          }
+        }
+      } else {
+        baseEnvironmentLogger.warning("Initial read on variable '%s'", name);
+
+        BaseEnvironment._dependants.set(name, [actualCaller]);
+
+        baseEnvironmentMetrics.configurationDependencies.set(
+          { variable_name: name, parent_variable_dependency_names: actualCaller },
+          1,
+        );
+      }
     }
   }
 

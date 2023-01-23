@@ -13,18 +13,9 @@
 #  limitations under the License.
 
 *
-!src
-src/lib/directories.ts
-!ssl
-!package*.json
-!path.js
-!updateVersion.js
+!./dist
+!./ssl
+!package.json
 !LICENSE
 !README.md
-!tsconfig.json
-!hardcoded-response-rules.yml
-!hardcoded-response-rules.yaml
-!hardcoded-response-rules.json
-!cors-rules.yml
-!cors-rules.yaml
-!cors-rules.json
+!CODEOWNERS

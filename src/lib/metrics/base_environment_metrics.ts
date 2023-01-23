@@ -57,3 +57,12 @@ export const environmentRegistrationTime = new prometheus.Gauge({
   help: 'Environment registristration time',
   labelNames: ['environment', 'variables', 'date'],
 });
+
+/**
+ * Configuration dependencies.
+ */
+export const configurationDependencies = new prometheus.Gauge({
+  name: 'configuration_dependencies',
+  help: 'The parent dependencies of a variable. Every time a variable is read, this metric is removed and then added again with the new parent dependencies.',
+  labelNames: ['variable_name', 'parent_variable_dependency_names'],
+});

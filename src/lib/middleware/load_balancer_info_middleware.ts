@@ -20,9 +20,12 @@
     Written by: Nikita Petko
 */
 
-import loadBalancerInfoResponder from '@lib/responders/load_balancer_info_responder';
+import * as npm from '@lib/utility/npm_utility';
 
+import * as os from 'os';
 import { NextFunction, Request, Response } from 'express';
+
+const { name, version } = npm.readPackageJson();
 
 export default class LoadBalancerInfoMiddleware {
   /**
@@ -33,7 +36,11 @@ export default class LoadBalancerInfoMiddleware {
    * @returns {void} Nothing.
    */
   public static invoke(_request: Request, response: Response, next: NextFunction): void {
-    loadBalancerInfoResponder.invoke(response, false, false, false);
+    response.header({
+      server: `${name} v${version}`,
+      'x-powered-by': `${name} v${version}`,
+      'x-machine-id': os.hostname(),
+    });
 
     next();
   }

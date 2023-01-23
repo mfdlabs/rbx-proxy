@@ -20,23 +20,25 @@
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/request';
-
 import webUtility from '@lib/utility/web_utility';
 import proxyEnvironment from '@lib/environment/proxy_environment';
 import axiosEnvironment from '@lib/environment/axios_environment';
 import hostnameEnvironment from '@lib/environment/hostname_environment';
-import loadBalancerResponder from '@lib/responders/load_balancer_responder';
 import proxyRawRequestsLogger from '@lib/loggers/proxy_raw_requests_logger';
 import proxyRawResponsesLogger from '@lib/loggers/proxy_raw_responses_logger';
 import sendAxiosRequestMiddlewareLogger from '@lib/loggers/middleware/send_axios_request_middleware_logger';
 import * as sendAxiosRequestMiddlewareMetrics from '@lib/metrics/middleware/send_axios_request_middleware_metrics';
 
+import * as http from 'http';
 import * as https from 'https';
+import htmlEncode from 'escape-html';
 import { NextFunction, Request, Response } from 'express';
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 const knownSitetestDatacenters = ['RA', 'AWA', 'SNC1', 'SNC2', 'SNC3'];
+const knownProductionDatacenters = ['CHI1', 'CHI2'];
+
+const knownLoadBalancerTypes = ['lb', 'rlb-spx'];
 
 export default class SendAxiosRequestMiddleware {
   /**
@@ -156,7 +158,7 @@ export default class SendAxiosRequestMiddleware {
         caller: request.ip,
       });
 
-      configuration.headers["origin"] = transformedOrigin;
+      configuration.headers['origin'] = transformedOrigin;
     }
 
     const transformedReferer = request.context.get('transformedReferer') as string;
@@ -170,7 +172,7 @@ export default class SendAxiosRequestMiddleware {
         caller: request.ip,
       });
 
-      configuration.headers["referer"] = transformedReferer;
+      configuration.headers['referer'] = transformedReferer;
     }
 
     if (!axiosEnvironment.singleton.enableCertificateValidation) {
@@ -208,6 +210,8 @@ export default class SendAxiosRequestMiddleware {
     }
 
     proxyRawRequestsLogger.debug('Configuration for downstream request: %s', JSON.stringify(configuration));
+
+    request.context.set('startTime', Date.now());
 
     axios
       .request(configuration)
@@ -316,10 +320,14 @@ export default class SendAxiosRequestMiddleware {
         caller: request.ip,
       });
 
-      loadBalancerResponder.sendMessage(
-        `The upstream for host '${hostname}' timed out after ${timing}ms.`,
-        request,
-        response,
+      response.sendMessage(
+        [
+          `The upstream timed out.\nHost: <b>${htmlEncode(hostname)}</b>\nAfter: <b>${htmlEncode(
+            timing.toString(),
+          )}ms</b>`,
+          undefined,
+          true,
+        ],
         504,
         undefined,
         true,
@@ -369,7 +377,7 @@ export default class SendAxiosRequestMiddleware {
         axiosResponse.status,
         axiosResponse.statusText,
         hostname,
-        request.hostname,
+        request.hostname + request.path,
         timing,
       );
       request.fireEvent(
@@ -468,24 +476,24 @@ export default class SendAxiosRequestMiddleware {
         // In the form of "roblox-machine-id: ${DATA_CENTER_NAME}-${MACHINE_TYPE}{MACHINE_ID}"
         const machineIdParts = machineId.split('-');
 
-        const randomDc = knownSitetestDatacenters[Math.floor(Math.random() * knownSitetestDatacenters.length)];
-
-        axiosResponse.headers['roblox-machine-id'] = `${randomDc}-${machineIdParts[1]}`;
-        axiosResponse.headers['x-rblx-origin'] = 'rlb-spx';
+        axiosResponse.headers['x-rblx-origin'] =
+          knownLoadBalancerTypes[Math.floor(Math.random() * knownLoadBalancerTypes.length)];
 
         const matches = hostnameEnvironment.singleton.robloxTestSiteDomainRegex.exec(request.hostname);
         const environment = matches ? matches?.['groups']?.['environment'] : 'prod';
 
+        const randomDc =
+          environment !== 'prod'
+            ? knownSitetestDatacenters[Math.floor(Math.random() * knownSitetestDatacenters.length)]
+            : knownProductionDatacenters[Math.floor(Math.random() * knownProductionDatacenters.length)];
+
         // If the environment is sitetestX change to stX and if it's gametestX change to gtX
         if (environment !== 'prod') {
-          if (environment.startsWith('sitetest')) {
-            axiosResponse.headers['x-rblx-env'] = `st${environment[8]}`;
-          } else if (environment.startsWith('gametest')) {
-            axiosResponse.headers['x-rblx-env'] = `gt${environment[8]}`;
-          }
-
-          axiosResponse.headers['x-rblx-pop'] = `${randomDc.toLowerCase()}-${axiosResponse.headers['x-rblx-env']}`;
+          axiosResponse.headers['x-rblx-env'] = environment;
+          axiosResponse.headers['x-rblx-pop'] = `${axiosResponse.headers['x-rblx-env']}-${randomDc.toLowerCase()}`;
         }
+
+        axiosResponse.headers['roblox-machine-id'] = `${randomDc}-${machineIdParts[1]}`;
       }
 
       // The response is a stream, so we need to pipe it to a string.
@@ -536,20 +544,9 @@ export default class SendAxiosRequestMiddleware {
               `Proxy error '${error.message}' from upstream '${hostname}' at downstream hostname '${request.hostname}' in ${timing}ms`,
             );
 
-            loadBalancerResponder.sendMessage(
-              `The upstream response for host '${hostname}' was aborted.`,
-              request,
-              response,
-              502,
-              undefined,
-              true,
-              {
-                'x-upstream-timing': `${timing}ms`,
-              },
-              [[true, 'This is a known issue, please be patient while we look for a fix.']],
-            );
-
-            return;
+            request.context.set('errorContext', [
+              `The upstream response was aborted. This is a known issue, please be patient while we look for a fix.`,
+            ]);
           }
 
           sendAxiosRequestMiddlewareLogger.error('Error in response stream', error);
@@ -571,7 +568,7 @@ export default class SendAxiosRequestMiddleware {
     }
   }
 
-  private static async _getResponseStringAsync(axiosResponse: AxiosResponse) {
+  private static async _getResponseStringAsync(axiosResponse: AxiosResponse<http.IncomingMessage>): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       let responseString = '';
       axiosResponse.data.on('data', (chunk: string) => {

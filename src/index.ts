@@ -26,6 +26,36 @@
 
 import 'source-map-support/register';
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+new (require('prom-client').Gauge)({
+  name: 'server_info',
+  help: 'Information about the server.',
+  labelNames: ['hostname', 'app_name', 'version', 'node_version', 'platform', 'architecture', 'environment'],
+}).set(
+  {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    hostname: require('os').hostname(),
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    app_name: require('../package.json').name,
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    version: `v${require('../package.json').version}`,
+
+    environment: process.env.NODE_ENV || 'development',
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    node_version: require('process').version,
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    platform: require('os').platform(),
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    architecture: require('os').arch(),
+  },
+  1,
+);
+
 import './import_handler';
 import './stdin_handler';
 
@@ -65,7 +95,6 @@ import loggingMiddleware from '@lib/middleware/logging_middleware';
 import metricsMiddleware from '@lib/middleware/metrics_middleware';
 import overrideMiddleware from '@lib/middleware/override_middleware';
 import cidrCheckMiddleware from '@lib/middleware/cidr_check_middleware';
-import beginTimingMiddleware from '@lib/middleware/begin_timing_middleware';
 import healthcheckMiddleware from '@lib/middleware/healthcheck_middleware';
 import crawlerCheckMiddleware from '@lib/middleware/crawler_check_middleware';
 import reverseProxyMiddleware from '@lib/middleware/reverse_proxy_middleware';
@@ -159,7 +188,6 @@ proxyServer.use(metricsMiddleware.invoke.bind(metricsMiddleware));
 proxyServer.use(configMiddleware.invoke.bind(configMiddleware));
 proxyServer.use(testExceptionMiddleware.invoke.bind(testExceptionMiddleware));
 proxyServer.use(healthcheckMiddleware.invoke.bind(healthcheckMiddleware));
-proxyServer.use(beginTimingMiddleware.invoke.bind(beginTimingMiddleware));
 proxyServer.use(wanAddressApplicationMiddleware.invoke.bind(wanAddressApplicationMiddleware));
 proxyServer.use(hostnameResolutionMiddleware.invoke.bind(hostnameResolutionMiddleware));
 proxyServer.use(denyLocalAreaNetworkAccessMiddleware.invoke.bind(denyLocalAreaNetworkAccessMiddleware));

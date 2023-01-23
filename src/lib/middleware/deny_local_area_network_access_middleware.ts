@@ -20,16 +20,13 @@
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/request';
-import '@lib/extensions/express/response';
-
 import lanEnvironment from '@lib/environment/lan_environment';
-import loadBalancerResponder from '@lib/responders/load_balancer_responder';
 import hardcodedResponseWriter from '@lib/writers/hardcoded_response_writer';
 import denyLocalAreaNetworkAccessMiddlewareLogger from '@lib/loggers/middleware/deny_local_area_network_access_middleware_logger';
 import * as denyLocalAreaNetworkAccessMiddlewareMetrics from '@lib/metrics/middleware/deny_local_area_network_access_middleware_metrics';
 
 import net from '@mfdlabs/net';
+import htmlEncode from 'escape-html';
 import { NextFunction, Request, Response } from 'express';
 
 export default class DenyLocalAreaNetworkAccessMiddleware {
@@ -76,14 +73,14 @@ export default class DenyLocalAreaNetworkAccessMiddleware {
 
   private static _handleLocalAreaNetworkAccess(
     hostname: string,
-    resolvedAddres: string,
+    resolvedAddress: string,
     request: Request,
     response: Response,
   ): void {
     denyLocalAreaNetworkAccessMiddlewareLogger.warning(
       "Request to '%s' or '%s' is from a LAN, responding with LAN access error",
       hostname,
-      resolvedAddres,
+      resolvedAddress,
     );
     request.fireEvent('localAreaNetworkAccessDenied');
 
@@ -96,13 +93,15 @@ export default class DenyLocalAreaNetworkAccessMiddleware {
 
     let message = '';
 
-    if (hostname === resolvedAddres) {
+    if (hostname === resolvedAddress) {
       message = 'Access to that address is forbidden.';
     } else {
-      message = `Access to the address that ${hostname} resolved to is forbidden.`;
+      message = `Access to the address is forbidden.\nHostname: <b>${htmlEncode(hostname)}</b>\nResolved address: <b>${htmlEncode(
+        resolvedAddress,
+      )}</b>`;
     }
 
-    loadBalancerResponder.sendMessage(message, request, response, 403);
+    response.sendMessage([message, undefined, true], 403);
   }
 
   private static _isUniqueLocalAddress(address: string): boolean {

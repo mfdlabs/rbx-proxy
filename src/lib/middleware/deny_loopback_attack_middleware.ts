@@ -20,15 +20,12 @@
     Written by: Nikita Petko
 */
 
-import '@lib/extensions/express/request';
-import '@lib/extensions/express/response';
-
-import loadBalancerResponder from '@lib/responders/load_balancer_responder';
 import hardcodedResponseWriter from '@lib/writers/hardcoded_response_writer';
 import denyLoopbackAttackMiddlewareLogger from '@lib/loggers/middleware/deny_loopback_attack_middleware_logger';
 import * as denyLoopbackAttackMiddlewareMetrics from '@lib/metrics/middleware/deny_loopback_attack_middleware_metrics';
 
 import net from '@mfdlabs/net';
+import htmlEncode from 'escape-html';
 import { NextFunction, Request, Response } from 'express';
 
 export default class DenyLoopbackAttackMiddleware {
@@ -82,11 +79,15 @@ export default class DenyLoopbackAttackMiddleware {
       caller: request.ip,
     });
 
-    loadBalancerResponder.sendMessage(
-      `Loopback detected from downstream client '${request.ip}' to upstream server '${hostname}'.`,
-      request,
-      response,
-      403
+    response.sendMessage(
+      [
+        `Loopback detected from downstream client to upstream server:\nClient: <b>${htmlEncode(
+          request.ip,
+        )}</b>\nUpstream: <b>${htmlEncode(hostname)}</b>.`,
+        undefined,
+        true,
+      ],
+      403,
     );
   }
 
