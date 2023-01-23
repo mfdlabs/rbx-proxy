@@ -829,12 +829,6 @@ export default class HardcodedResponseMiddleware {
 				  let hasDefault = false;
 				  let defaultSetTo;
 				  
-				  hardcodedResponseMiddlewareLogger.warning(
-					  '%d %s',
-					  expressions.length,
-					  JSON.stringify(expressions)
-					);
-
                   for (const expression of expressions) {
                     const [left, operator, right, , ...setToRaw] = expression
                       .trim()
@@ -845,16 +839,6 @@ export default class HardcodedResponseMiddleware {
 
                     const actualLeft = this._getVarValue(vars, left, request, routeTemplate);
 					const actualRight = this._getVarValue(vars, right, request, routeTemplate);
-					
-					hardcodedResponseMiddlewareLogger.warning(
-					  '%s, %s, %s, %s, %s, %s',
-					  left,
-					  operator,
-					  right,
-					  setTo,
-					  actualLeft,
-					  actualRight
-					);
 
                     let result = false;
                     switch (operator) {
@@ -886,11 +870,7 @@ export default class HardcodedResponseMiddleware {
                         );
                     }
 
-                    if (result) {
-				      hardcodedResponseMiddlewareLogger.warning(
-					    'Is true condition'
-					  );
-					
+                    if (result) {					
                       const actualSetTo = this._replaceVarExpression(vars, setTo, request, routeTemplate);
 
                       if (varTypeBatchConditional === 'number') {
