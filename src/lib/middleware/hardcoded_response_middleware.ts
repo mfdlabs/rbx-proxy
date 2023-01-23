@@ -861,6 +861,7 @@ export default class HardcodedResponseMiddleware {
                         result = actualLeft <= actualRight;
                         break;
 					  case 'def':
+					  case '_':
 						hasDefault = true;
 						defaultSetTo = this._replaceVarExpression(vars, setTo, request, routeTemplate);
 						break;
