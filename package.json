@@ -1,6 +1,6 @@
 {
   "name": "@mfdlabs/rbx-proxy",
-  "version": "1.1.9-dev.d4a1cd6.2",
+  "version": "1.2.0-dev.c1d2395.1",
   "description": "A website for proxying host based requests and transforming Roblox Test Site Hostnames to Production Hostnames",
   "main": "dist/index.js",
   "scripts": {

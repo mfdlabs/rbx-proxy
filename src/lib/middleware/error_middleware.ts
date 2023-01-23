@@ -53,7 +53,7 @@ export default class ErrorMiddleware {
       'An error occurred while processing a request on URI %s://%s:%d%s (%s): %s',
       request.protocol,
       request.hostname,
-      request.socket.localPort,
+      request.localPort,
       request.path,
       request.ip,
       errorStack,

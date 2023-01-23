@@ -469,6 +469,7 @@ export default class HardcodedResponseMiddleware {
 		vars.set('localPort_', request.localPort);
 		vars.set('realIp_', request.realIp);
 		vars.set('uuid_', this._uuid);
+        vars.set('value_', value);
 
         if (updateExternalVars) {
           for (const [key, value] of vars) {
@@ -501,6 +502,12 @@ export default class HardcodedResponseMiddleware {
             methodName = methodExpr.split(' ')[0];
             args = methodExpr.split(' ').slice(1);
           }
+		  
+		  hardcodedResponseMiddlewareLogger.debug(
+		    "Calling chain method '%s' with args '%s'.",
+			methodName,
+			args.join(' ')
+		  );
 
           if (methodName) {
             const methodFn = (globalThis as any)[methodName];
@@ -728,6 +735,8 @@ export default class HardcodedResponseMiddleware {
                     vars.set(varName, parsedVarValue);
                   } else if (varType === 'boolean') {
                     vars.set(varName, varValue === 'true');
+				  } else if (varType === 'empty') {
+					vars.set(varName, '');
                   } else {
                     vars.set(varName, varValue);
                   }
@@ -781,6 +790,8 @@ export default class HardcodedResponseMiddleware {
                       vars.set(varNameIf, parsedVarValueIf);
                     } else if (varTypeIf === 'boolean') {
                       vars.set(varNameIf, valueIf === 'true');
+					} else if (varTypeIf === 'empty') {
+					  vars.set(varNameIf, '');
                     } else {
                       vars.set(varNameIf, valueIf);
                     }
@@ -846,6 +857,8 @@ export default class HardcodedResponseMiddleware {
                         vars.set(varNameBatchConditional, parsedVarValueBatchConditional);
                       } else if (varTypeBatchConditional === 'boolean') {
                         vars.set(varNameBatchConditional, actualSetTo === 'true');
+					  } else if (varTypeBatchConditional === 'empty') {
+					    vars.set(varNameBatchConditional, '');
                       } else {
                         vars.set(varNameBatchConditional, actualSetTo);
                       }
@@ -888,6 +901,8 @@ export default class HardcodedResponseMiddleware {
                     value = parsedDefaultValue;
                   } else if (defaultType === 'boolean') {
                     value = defaultValue === 'true';
+				  } else if (defaultType === 'empty') {
+				    value = '';
                   } else {
                     value = defaultValue;
                   }
@@ -913,6 +928,8 @@ export default class HardcodedResponseMiddleware {
                     value = parsedDefaultValue;
                   } else if (setValueType === 'boolean') {
                     value = setValueValue === 'true';
+				  } else if (setValueType === 'empty') {
+				    value = '';
                   } else {
                     value = setValueValue;
                   }
@@ -923,8 +940,6 @@ export default class HardcodedResponseMiddleware {
               }
             }
           }
-
-          vars.set('value_', value);
         }
       }
 
