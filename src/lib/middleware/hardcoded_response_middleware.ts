@@ -207,8 +207,8 @@ export default class HardcodedResponseMiddleware {
       },
       updateExternalVars,
     );
-	
-	const varRegex = /{{var\.([a-zA-Z0-9-_]+)}}/;
+
+    const varRegex = /{{var\.([a-zA-Z0-9-_]+)}}/;
     body = this._replaceBodyExpression(
       body,
       varRegex,
@@ -462,18 +462,18 @@ export default class HardcodedResponseMiddleware {
       if (Array.isArray(value)) {
         actualValue = value.join(',');
       }
-	  
-	  const vars = new Map<string, any>(); // Per chain variables. Variable set in a setVar or setVarIf. Can be used in the chain like ${varName}.
 
-	  // Set some default vars like now_, nowIso_, uuid_.
-	  vars.set('now_', new Date().getTime());
-	  vars.set('nowIso_', new Date().toISOString());
-	  vars.set('ip_', request.ip);
-	  vars.set('machineId_', os.hostname());
-	  vars.set('localPort_', request.localPort);
-	  vars.set('realIp_', request.realIp);
-	  vars.set('uuid_', this._uuid);
-	  
+      const vars = new Map<string, any>(); // Per chain variables. Variable set in a setVar or setVarIf. Can be used in the chain like ${varName}.
+
+      // Set some default vars like now_, nowIso_, uuid_.
+      vars.set('now_', new Date().getTime());
+      vars.set('nowIso_', new Date().toISOString());
+      vars.set('ip_', request.ip);
+      vars.set('machineId_', os.hostname());
+      vars.set('localPort_', request.localPort);
+      vars.set('realIp_', request.realIp);
+      vars.set('uuid_', this._uuid);
+
       if (updateExternalVars) {
         for (const [key, value] of vars) {
           externalVars.set(key, value);
@@ -495,8 +495,8 @@ export default class HardcodedResponseMiddleware {
         actualValue = optionalReplacer(match, actualValue, vars);
         value = actualValue.toString();
       }
-	  
-	  vars.set('value_', value);
+
+      vars.set('value_', value);
 
       const chain = match.groups?.chain;
 
@@ -520,12 +520,12 @@ export default class HardcodedResponseMiddleware {
             methodName = methodExpr.split(' ')[0];
             args = methodExpr.split(' ').slice(1);
           }
-		  
-		  hardcodedResponseMiddlewareLogger.debug(
-		    "Calling chain method '%s' with args '%s'.",
-			methodName,
-			args.join(' ')
-		  );
+
+          hardcodedResponseMiddlewareLogger.debug(
+            "Calling chain method '%s' with args '%s'.",
+            methodName,
+            args.join(' '),
+          );
 
           if (methodName) {
             const methodFn = (globalThis as any)[methodName];
@@ -753,8 +753,8 @@ export default class HardcodedResponseMiddleware {
                     vars.set(varName, parsedVarValue);
                   } else if (varType === 'boolean') {
                     vars.set(varName, varValue === 'true');
-				  } else if (varType === 'empty') {
-					vars.set(varName, '');
+                  } else if (varType === 'empty') {
+                    vars.set(varName, '');
                   } else {
                     vars.set(varName, varValue);
                   }
@@ -808,8 +808,8 @@ export default class HardcodedResponseMiddleware {
                       vars.set(varNameIf, parsedVarValueIf);
                     } else if (varTypeIf === 'boolean') {
                       vars.set(varNameIf, valueIf === 'true');
-					} else if (varTypeIf === 'empty') {
-					  vars.set(varNameIf, '');
+                    } else if (varTypeIf === 'empty') {
+                      vars.set(varNameIf, '');
                     } else {
                       vars.set(varNameIf, valueIf);
                     }
@@ -826,19 +826,19 @@ export default class HardcodedResponseMiddleware {
                   const varNameBatchConditional = args[0];
                   const varTypeBatchConditional = args[1];
                   const expressions = args.slice(2).join(' ').split(';');
-				  let hasDefault = false;
-				  let defaultSetTo;
-				  
+                  let hasDefault = false;
+                  let defaultSetTo;
+
                   for (const expression of expressions) {
                     const [left, operator, right, , ...setToRaw] = expression
                       .trim()
                       .split(' ')
                       .map((s) => s.trim());
-					  
-					const setTo = setToRaw.join(' ');
+
+                    const setTo = setToRaw.join(' ');
 
                     const actualLeft = this._getVarValue(vars, left, request, routeTemplate);
-					const actualRight = this._getVarValue(vars, right, request, routeTemplate);
+                    const actualRight = this._getVarValue(vars, right, request, routeTemplate);
 
                     let result = false;
                     switch (operator) {
@@ -860,18 +860,18 @@ export default class HardcodedResponseMiddleware {
                       case 'le':
                         result = actualLeft <= actualRight;
                         break;
-					  case 'def':
-					  case '_':
-						hasDefault = true;
-						defaultSetTo = this._replaceVarExpression(vars, setTo, request, routeTemplate);
-						break;
+                      case 'def':
+                      case '_':
+                        hasDefault = true;
+                        defaultSetTo = this._replaceVarExpression(vars, setTo, request, routeTemplate);
+                        break;
                       default:
                         throw new Error(
                           `Cannot replace body template, invalid operator for setVarBatchConditional: ${operator}`,
                         );
                     }
 
-                    if (result) {					
+                    if (result) {
                       const actualSetTo = this._replaceVarExpression(vars, setTo, request, routeTemplate);
 
                       if (varTypeBatchConditional === 'number') {
@@ -885,8 +885,8 @@ export default class HardcodedResponseMiddleware {
                         vars.set(varNameBatchConditional, parsedVarValueBatchConditional);
                       } else if (varTypeBatchConditional === 'boolean') {
                         vars.set(varNameBatchConditional, actualSetTo === 'true');
-					  } else if (varTypeBatchConditional === 'empty') {
-					    vars.set(varNameBatchConditional, '');
+                      } else if (varTypeBatchConditional === 'empty') {
+                        vars.set(varNameBatchConditional, '');
                       } else {
                         vars.set(varNameBatchConditional, actualSetTo);
                       }
@@ -897,9 +897,9 @@ export default class HardcodedResponseMiddleware {
                       break;
                     }
                   }
-				  
-				  if (hasDefault) {
-				    if (varTypeBatchConditional === 'number') {
+
+                  if (hasDefault) {
+                    if (varTypeBatchConditional === 'number') {
                       const parsedVarValueBatchConditional = this._parseNumber(math.evaluate(defaultSetTo));
                       if (isNaN(parsedVarValueBatchConditional)) {
                         throw new Error(
@@ -910,15 +910,15 @@ export default class HardcodedResponseMiddleware {
                       vars.set(varNameBatchConditional, parsedVarValueBatchConditional);
                     } else if (varTypeBatchConditional === 'boolean') {
                       vars.set(varNameBatchConditional, defaultSetTo === 'true');
-					} else if (varTypeBatchConditional === 'empty') {
-					  vars.set(varNameBatchConditional, '');
+                    } else if (varTypeBatchConditional === 'empty') {
+                      vars.set(varNameBatchConditional, '');
                     } else {
                       vars.set(varNameBatchConditional, defaultSetTo);
                     }
 
                     if (updateExternalVars)
                       externalVars.set(varNameBatchConditional, vars.get(varNameBatchConditional));
-				  }
+                  }
 
                   break;
                 case 'default':
@@ -951,17 +951,17 @@ export default class HardcodedResponseMiddleware {
                     value = parsedDefaultValue;
                   } else if (defaultType === 'boolean') {
                     value = defaultValue === 'true';
-				  } else if (defaultType === 'empty') {
-				    value = '';
+                  } else if (defaultType === 'empty') {
+                    value = '';
                   } else {
                     value = defaultValue;
                   }
 
                   break;
-				case 'setValue':
-				  // Like: {{setValue type value}}
-				  
-				  const setValueType = args[0];
+                case 'setValue':
+                  // Like: {{setValue type value}}
+
+                  const setValueType = args[0];
                   const setValueValue = this._replaceVarExpression(
                     vars,
                     args.slice(1).join(' '),
@@ -978,8 +978,8 @@ export default class HardcodedResponseMiddleware {
                     value = parsedDefaultValue;
                   } else if (setValueType === 'boolean') {
                     value = setValueValue === 'true';
-				  } else if (setValueType === 'empty') {
-				    value = '';
+                  } else if (setValueType === 'empty') {
+                    value = '';
                   } else {
                     value = setValueValue;
                   }
@@ -1057,9 +1057,9 @@ export default class HardcodedResponseMiddleware {
 
       if (vars.has(varName)) {
         const value = vars.get(varName);
-		if (typeof value === 'function') return value();
-		
-		return value;
+        if (typeof value === 'function') return value();
+
+        return value;
       } else {
         throw new Error(`Cannot replace body template, variable not found: ${varName}`);
       }

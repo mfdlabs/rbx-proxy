@@ -73,7 +73,7 @@ export default class ReverseProxyMiddleware {
 
         // If we haven't assigned an IP yet, use the x-forwarded-for header.
         if (!didAssignIP) {
-          const forwardedHeader = request.header(proxyEnvironment.singleton.forwardingHeaderName);
+          const forwardedHeader = request.header(proxyEnvironment.singleton.forwardingHeaderName)?.split(',')?.[0];
           if (typeof forwardedHeader === 'string' && this._isValidIP(forwardedHeader)) {
             reverseProxyMiddlewareMetrics.requestsThatAreFromAuthorizedReverseProxies.inc({
               method: request.method,
