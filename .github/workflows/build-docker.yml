@@ -1,0 +1,80 @@
+name: 'Build Docker Image'
+
+# Only run this when on the master branch and changes are made to the Dockerfile, src, package.json, package-lock.json, tsconfig.json, or .github/workflows/build-docker.yml
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'Dockerfile'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.github/workflows/build-docker.yml'
+
+  # Allows you to run this workflow manually from the Actions tab. We can override the branch, image name, and docker registry.
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch'
+        required: true
+        default: 'master'
+      image:
+        description: 'Image Name'
+        required: true
+        default: 'mfdlabs/rbx-proxy'
+      registry:
+        description: 'Docker Registry'
+        required: true
+        default: 'docker.io'
+
+jobs:
+  build:
+    # Only run if secrets.DOCKER_USERNAME, secrets.DOCKER_PASSWORD are set. Ignore if "[SKIP IMAGE]" is in the commit message.
+    if: ${{ secrets.DOCKER_USERNAME && secrets.DOCKER_PASSWORD && !contains(github.event.head_commit.message, '[SKIP IMAGE]') }}
+    runs-on: ubuntu-latest
+
+    # If DOCKER_REGISTRY is not set, default to docker.io
+    env:
+      DOCKER_REGISTRY: ${{ github.event.inputs.registry || secrets.DOCKER_REGISTRY || 'docker.io' }}
+      IMAGE_NAME: ${{ github.event.inputs.image || secrets.DOCKER_IMAGE }}
+
+    # Pushes 2 identical images to the registry, one with the tag latest and one with the version in package.json
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '17.x'
+
+      # Error if IMAGE_NAME is not set
+      - name: Check IMAGE_NAME
+        run: |
+          if [ -z "$IMAGE_NAME" ]; then
+            echo "IMAGE_NAME is not set"
+            exit 1
+          fi
+
+      # Run updateVersion.js to update the version in package.json
+      - name: Update version
+        run: node updateVersion.js
+
+      # Step to get the version from package.json
+      - name: Get version
+        id: get_version
+        run: echo ::set-output name=version::$(node -p "require('./package.json').version")
+
+      # Build the image
+      - name: Build image
+        run: docker build -t ${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.version }} -t ${{ env.IMAGE_NAME }}:latest .
+
+      # Login to the registry
+      - name: Login to registry
+        run: echo ${{ secrets.DOCKER_PASSWORD }} | docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+
+      # Push the image to the registry
+      - name: Push image
+        run: docker push ${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.version }} && docker push ${{ env.IMAGE_NAME }}:latest
