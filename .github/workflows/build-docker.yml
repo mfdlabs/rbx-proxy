@@ -31,14 +31,15 @@ on:
 
 jobs:
   build:
-    # Only run if secrets.DOCKER_USERNAME, secrets.DOCKER_PASSWORD are set. Ignore if "[SKIP IMAGE]" is in the commit message.
-    if: ${{ secrets.DOCKER_USERNAME }} && ${{ secrets.DOCKER_PASSWORD }} && !contains(github.event.head_commit.message, '[SKIP IMAGE]')
+    if: "!contains(github.event.head_commit.message, '[SKIP IMAGE]')"
     runs-on: ubuntu-latest
 
     # If DOCKER_REGISTRY is not set, default to docker.io
     env:
       DOCKER_REGISTRY: ${{ github.event.inputs.registry || secrets.DOCKER_REGISTRY || 'docker.io' }}
       IMAGE_NAME: ${{ github.event.inputs.image || secrets.IMAGE_NAME || 'mfdlabs/rbx-proxy' }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
     # Pushes 2 identical images to the registry, one with the tag latest and one with the version in package.json
     steps:
@@ -55,6 +56,22 @@ jobs:
         run: |
           if [ -z "$IMAGE_NAME" ]; then
             echo "IMAGE_NAME is not set"
+            exit 1
+          fi
+
+      # Error if DOCKER_USERNAME is not set
+      - name: Check DOCKER_USERNAME
+        run: |
+          if [ -z "$DOCKER_USERNAME" ]; then
+            echo "DOCKER_USERNAME is not set"
+            exit 1
+          fi
+
+      # Error if DOCKER_PASSWORD is not set
+      - name: Check DOCKER_PASSWORD
+        run: |
+          if [ -z "$DOCKER_PASSWORD" ]; then
+            echo "DOCKER_PASSWORD is not set"
             exit 1
           fi
 
