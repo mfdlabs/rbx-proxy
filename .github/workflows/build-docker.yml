@@ -32,13 +32,13 @@ on:
 jobs:
   build:
     # Only run if secrets.DOCKER_USERNAME, secrets.DOCKER_PASSWORD are set. Ignore if "[SKIP IMAGE]" is in the commit message.
-    if: ${{ secrets.DOCKER_USERNAME && secrets.DOCKER_PASSWORD && !contains(github.event.head_commit.message, '[SKIP IMAGE]') }}
+    if: ${{ secrets.DOCKER_USERNAME }} && ${{ secrets.DOCKER_PASSWORD }} && !contains(github.event.head_commit.message, '[SKIP IMAGE]')
     runs-on: ubuntu-latest
 
     # If DOCKER_REGISTRY is not set, default to docker.io
     env:
       DOCKER_REGISTRY: ${{ github.event.inputs.registry || secrets.DOCKER_REGISTRY || 'docker.io' }}
-      IMAGE_NAME: ${{ github.event.inputs.image || secrets.DOCKER_IMAGE }}
+      IMAGE_NAME: ${{ github.event.inputs.image || secrets.IMAGE_NAME || 'mfdlabs/rbx-proxy' }}
 
     # Pushes 2 identical images to the registry, one with the tag latest and one with the version in package.json
     steps:
