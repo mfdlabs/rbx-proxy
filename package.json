@@ -36,7 +36,7 @@
     "prettier": "^2.8.8",
     "eslint-plugin-jsdoc": "^46.2.6",
     "source-map-support": "^0.5.21",
-    "typescript": "^5.1.3"
+    "typescript": "^5.3.3"
   },
   "dependencies": {
     "@mfdlabs/environment": "^1.0.3",
